@@ -14,6 +14,12 @@ This header provides a lightweight API for simulation cases:
 
 Invalid values do not abort immediately; instead a warning is printed and
 the provided default is returned.
+
+## Public API
+
+- `params_init_from_argv()`: Initialize runtime key/value storage.
+- `param_string()`: Access raw string values.
+- `param_int()`, `param_double()`, `param_bool()`: Typed accessors with defaults.
 */
 
 #ifndef PARAMS_H
@@ -28,6 +34,11 @@ the provided default is returned.
 
 #include "parse_params.h"
 
+/**
+### _param_str_ieq()
+
+Case-insensitive string equality helper used by `param_bool()`.
+*/
 static inline bool _param_str_ieq (const char * a, const char * b)
 {
   if (!a || !b)
@@ -46,6 +57,10 @@ static inline bool _param_str_ieq (const char * a, const char * b)
 
 Initializes the parameter map from `argv[1]` when provided.
 If no file argument is given, falls back to `case.params`.
+
+#### Parameters
+- `argc`: Number of CLI arguments.
+- `argv`: Argument vector passed to `main()`.
 */
 static inline void params_init_from_argv (int argc, const char * argv[])
 {
@@ -56,6 +71,9 @@ static inline void params_init_from_argv (int argc, const char * argv[])
 ### param_string()
 
 Returns string value for `key`, or `default_value` when key is missing.
+
+#### Returns
+- Raw string from the parameter map, or `default_value` if missing.
 */
 static inline const char * param_string (const char * key,
                                          const char * default_value)
@@ -67,6 +85,9 @@ static inline const char * param_string (const char * key,
 ### param_double()
 
 Returns a floating-point parameter with a default fallback.
+
+#### Returns
+- Parsed `double` value when valid, otherwise `default_value`.
 */
 static inline double param_double (const char * key, double default_value)
 {
@@ -94,6 +115,9 @@ static inline double param_double (const char * key, double default_value)
 ### param_int()
 
 Returns an integer parameter with bounds and format validation.
+
+#### Returns
+- Parsed integer value when valid, otherwise `default_value`.
 */
 static inline int param_int (const char * key, int default_value)
 {
@@ -126,6 +150,9 @@ Parses boolean-like values:
 - false: `0`, `false`, `no`, `off`
 
 All matches are case-insensitive.
+
+#### Returns
+- Parsed boolean value when valid, otherwise `default_value`.
 */
 static inline bool param_bool (const char * key, bool default_value)
 {

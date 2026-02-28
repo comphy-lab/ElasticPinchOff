@@ -10,6 +10,15 @@ Fluid assignment:
 
 Runtime parameters are loaded from a `key=value` file through
 `src-local/params.h`.
+
+## Input Parameters
+
+This case expects runtime keys such as:
+- `CaseNo`
+- `MAXlevel`
+- `Oh`, `Oha`
+- `De`, `Ec`
+- `tmax`, `dtmax`
 */
 
 #include "axi.h"
@@ -53,10 +62,18 @@ double Oh, Oha, De, Ec, tmax;
 char nameOut[128], dumpFile[128], logFile[128];
 
 /**
-## Main Program
+### main()
 
-Initializes parameters, configures material properties, and enters the
-Basilisk event loop.
+Initializes runtime parameters, configures material properties, and enters
+the Basilisk event loop.
+
+#### Parameters
+- `argc`: Number of CLI arguments.
+- `argv`: Argument vector where `argv[1]` is an optional parameter file path.
+
+#### Returns
+- `0`: The simulation runs to completion.
+- `1`: Runtime parameter validation fails before entering the event loop.
 */
 int main (int argc, char const *argv[])
 {
@@ -142,7 +159,9 @@ event adapt (i++)
 }
 
 /**
-## Dumping snapshots
+## Event: writingFiles
+
+Writes restart state and time-stamped snapshots to `intermediate/`.
 */
 event writingFiles (t = 0; t += SNAP_INTERVAL; t <= tmax)
 {
@@ -152,7 +171,9 @@ event writingFiles (t = 0; t += SNAP_INTERVAL; t <= tmax)
 }
 
 /**
-## Ending Simulation
+## Event: stopSimulation
+
+Stops the run when `t` reaches `tmax`.
 */
 event stopSimulation (t = tmax)
 {
@@ -165,7 +186,9 @@ event stopSimulation (t = tmax)
 }
 
 /**
-## Log writing
+## Event: logWriting
+
+Appends per-iteration diagnostics to `c<CaseNo>-log`.
 */
 scalar Y[];
 

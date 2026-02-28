@@ -10,6 +10,11 @@ This header manages:
 
 Type conversion (`int`, `double`, `bool`) is intentionally handled in
 `params.h`.
+
+## Public API
+
+- `parse_params_init_from_argv()`: Pick parameter file from CLI and load it.
+- `parse_param_string()`: Read raw string values with a default fallback.
 */
 
 #ifndef PARSE_PARAMS_H
@@ -86,6 +91,10 @@ static inline int parse_params_find_key (const char * key)
 ### parse_params_set_value()
 
 Inserts or updates one key/value entry in the internal storage.
+
+#### Parameters
+- `key`: Parameter key name.
+- `value`: Raw value string to store.
 */
 static inline void parse_params_set_value (const char * key,
                                            const char * value)
@@ -168,6 +177,10 @@ static inline int parse_params_load (const char * filename)
 
 Selects parameter file from `argv[1]` or defaults to `case.params`,
 then attempts to load it.
+
+#### Parameters
+- `argc`: Number of CLI arguments.
+- `argv`: Argument vector passed to `main()`.
 */
 static inline void parse_params_init_from_argv (int argc,
                                                 const char * argv[])
@@ -199,6 +212,13 @@ static inline void parse_params_ensure_loaded (void)
 ### parse_param_string()
 
 Returns the raw string value for `key` or `default_value` when missing.
+
+#### Parameters
+- `key`: Parameter key name.
+- `default_value`: Value returned when `key` is not present.
+
+#### Returns
+- Raw parameter value when present, otherwise `default_value`.
 */
 static inline const char * parse_param_string (const char * key,
                                                const char * default_value)

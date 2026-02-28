@@ -4,14 +4,28 @@ Axisymmetric viscoelastic pinch-off simulation using Basilisk.
 
 ## Layout
 
-- `simulationCases/` simulation entry points and generated case folders (`<CaseNo>/`)
-- `src-local/` project-specific Basilisk headers
-  - `params.h` hyphal-flow style runtime API: `params_init_from_argv`, `param_int`, `param_double`
-  - `parse_params.h` low-level key/value loading used by `params.h`
-- `runSimulation.sh` single-case compile/run driver
-- `runParameterSweep.sh` sweep driver that generates per-case parameter files
-- `default.params` base parameters for `LiquidOutThinning.c`
-- `sweep.params` example sweep over `Ec`, `De`, and `tmax`
+```text
+|-- basilisk/ - Local Basilisk checkout (ignored; do not commit)
+|-- simulationCases/ - Simulation entry points and generated case outputs
+|   `-- LiquidOutThinning.c - Axisymmetric viscoelastic pinch-off case
+|-- src-local/ - Project-specific Basilisk extensions and runtime parameter API
+|   |-- parse_params.h - Low-level key/value parser for parameter files
+|   |-- params.h - Typed parameter accessors (`param_int`, `param_double`, ...)
+|   |-- two-phaseVE.h - Two-phase viscoelastic solver extensions
+|   `-- log-conform-viscoelastic-scalar-2D.h - Log-conformation model implementation
+|-- .github/ - Documentation assets, scripts, workflows, and generated site
+|   |-- scripts/ - Docs build and local deploy scripts
+|   |-- workflows/ - GitHub Actions workflows (Pages deploy and search sync)
+|   |-- assets/ - Static CSS/JS/logos/template for the docs site
+|   `-- docs/ - Generated HTML documentation output
+|-- runSimulation.sh - Single-case compile/run driver
+|-- runParameterSweep.sh - Parameter sweep driver
+|-- default.params - Base runtime parameters for single-case runs
+|-- sweep.params - Example sweep definition (`SWEEP_*`, `CASE_START`, `CASE_END`)
+|-- display.html - Local visualization helper
+|-- LICENSE - Project license
+`-- README.md - Project overview and usage
+```
 
 ## Requirements
 
@@ -32,7 +46,7 @@ bash runSimulation.sh default.params --mpi --CPUs 8
 ```
 
 The case is executed in `simulationCases/<CaseNo>/`.
-The log file is written as `c<CaseNo>-log` (for example: `c42-log`).
+The log file is written as `c<CaseNo>-log` (for example: `c1000-log`).
 
 ## Parameter Sweep
 
@@ -62,3 +76,26 @@ bash runParameterSweep.sh sweep.params --dry-run
 - `dtmax`
 
 For sortable case folders, use `CaseNo >= 1000` (e.g., `1000`, `1001`, ...).
+
+## Documentation Website and CI
+
+The repository includes CoMPhy's docs/CI bundle under `.github/`.
+
+Build documentation locally:
+
+```bash
+bash .github/scripts/build.sh
+```
+
+Preview generated docs locally:
+
+```bash
+bash .github/scripts/deploy.sh
+```
+
+This project uses the committed docs model:
+- generated site files live in `.github/docs/`,
+- the GitHub Pages deploy workflow triggers on changes to `.github/docs/**` on `main`.
+
+For GitHub Pages, set:
+- Settings -> Pages -> Source: `GitHub Actions`.
