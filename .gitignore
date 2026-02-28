@@ -50,7 +50,7 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
-*.html
+**/display.html
 
 # Basilisk local/tooling folders
 basilisk/
