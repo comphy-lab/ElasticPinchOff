@@ -4,32 +4,32 @@ Axisymmetric viscoelastic pinch-off simulation using Basilisk.
 
 ## Layout
 
-```text
-|-- basilisk/ - Local Basilisk checkout (ignored; do not commit)
-|-- simulationCases/ - Simulation entry points and generated case outputs
-|   `-- LiquidOutThinning.c - Axisymmetric viscoelastic pinch-off case
-|-- src-local/ - Project-specific Basilisk extensions and runtime parameter API
-|   |-- parse_params.h - Low-level key/value parser for parameter files
-|   |-- params.h - Typed parameter accessors (`param_int`, `param_double`, ...)
-|   |-- two-phaseVE.h - Two-phase viscoelastic solver extensions
-|   `-- log-conform-viscoelastic-scalar-2D.h - Log-conformation model implementation
-|-- .github/ - Documentation assets, scripts, workflows, and generated site
-|   |-- scripts/ - Docs build and local deploy scripts
-|   |-- workflows/ - GitHub Actions workflows (Pages deploy and search sync)
-|   |-- assets/ - Static CSS/JS/logos/template for the docs site
-|   `-- docs/ - Generated HTML documentation output
-|-- runSimulation.sh - Single-case compile/run driver
-|-- runParameterSweep.sh - Parameter sweep driver
-|-- default.params - Base runtime parameters for single-case runs
-|-- sweep.params - Example sweep definition (`SWEEP_*`, `CASE_START`, `CASE_END`)
-|-- display.html - Local visualization helper
-|-- LICENSE - Project license
-`-- README.md - Project overview and usage
+```
+├── basilisk/ - Local Basilisk checkout (ignored; do not commit)
+├── simulationCases/ - Simulation entry points and generated case outputs
+│   └── LiquidOutThinning.c - Axisymmetric viscoelastic pinch-off case
+├── src-local/ - Project-specific Basilisk extensions and runtime parameter API
+│   ├── parse_params.h - Low-level key/value parser for parameter files
+│   ├── params.h - Typed parameter accessors (`param_int`, `param_double`, ...)
+│   ├── two-phaseVE.h - Two-phase viscoelastic solver extensions
+│   └── log-conform-viscoelastic-scalar-2D.h - Log-conformation model implementation
+├── .github/ - Documentation assets, scripts, workflows, and generated site
+│   ├── scripts/ - Docs build and local deploy scripts
+│   ├── workflows/ - GitHub Actions workflows (Pages deploy and search sync)
+│   ├── assets/ - Static CSS/JS/logos/template for the docs site
+│   └── docs/ - Generated HTML documentation output
+├── runSimulation.sh - Single-case compile/run driver
+├── runParameterSweep.sh - Parameter sweep driver
+├── default.params - Base runtime parameters for single-case runs
+├── sweep.params - Example sweep definition (`SWEEP_*`, `CASE_START`, `CASE_END`)
+├── display.html - Local visualization helper
+├── LICENSE - Project license
+└── README.md - Project overview and usage
 ```
 
 ## Requirements
 
-- Basilisk `qcc` available in `PATH`
+- [Basilisk](https://basilisk.fr/) `qcc` available in `PATH`
 - Optional for MPI runs: `mpicc`, `mpirun`
 - Optional local environment bootstrap: `.project_config` in repo root
 

@@ -1650,96 +1650,113 @@ def convert_directory_tree_to_html(readme_content: str) -> str:
     Returns:
         The modified README content with the directory tree replaced by an HTML site map.
     """
-    tree_pattern = r'```\s*\n(├.*?\n.*?└.*?)\n```'
-    tree_match = re.search(tree_pattern, readme_content, re.DOTALL)
-    
-    if not tree_match:
+    # Accept plain or language-tagged fences and both Unicode/ASCII tree markers.
+    fence_pattern = r'```[^\n]*\n(.*?)\n```'
+    tree_match = None
+    tree_text = None
+
+    for match in re.finditer(fence_pattern, readme_content, re.DOTALL):
+        candidate = match.group(1)
+        if re.search(r'(^|\n)\s*(├──|└──|\|--|`--)\s+', candidate):
+            tree_match = match
+            tree_text = candidate
+            break
+
+    if not tree_match or tree_text is None:
         return readme_content
-        
-    tree_text = tree_match.group(1)
-    
+
     html_structure = ['<div class="repository-structure">']
-    
-    path_stack = []
-    prev_indent = -1
-    
+
+    # Directory path by indentation depth.
+    depth_dirs = {}
+    generated_suffixes = {'.c', '.h', '.cpp', '.hpp', '.py', '.sh', '.sbatch', '.ipynb', '.params'}
+
     for line in tree_text.split('\n'):
         if not line.strip():
             continue
-            
+
         indent_level = 0
-        
         if '│   ' in line:
             indent_level = line.count('│   ')
-        elif '    ' in line and ('├── ' in line or '└── ' in line):
+        elif '|   ' in line:
+            indent_level = line.count('|   ')
+        elif '    ' in line and ('├── ' in line or '└── ' in line or '|-- ' in line or '`-- ' in line):
             spaces_before_item = len(line) - len(line.lstrip(' '))
             indent_level = spaces_before_item // 4
-        
-        clean_line = line.replace('├── ', '').replace('└── ', '').replace('│   ', '')
-        
-        parts = clean_line.strip().split(None, 1)
-        path = parts[0]
-        description = parts[1] if len(parts) > 1 else ''
-        
+
+        clean_line = line
+        clean_line = clean_line.replace('├── ', '').replace('└── ', '')
+        clean_line = clean_line.replace('|-- ', '').replace('`-- ', '')
+        clean_line = clean_line.replace('│   ', '').replace('|   ', '')
+        clean_line = clean_line.strip()
+
+        if not clean_line:
+            continue
+
+        if ' - ' in clean_line:
+            path, description = clean_line.split(' - ', 1)
+        else:
+            parts = clean_line.split(None, 1)
+            path = parts[0]
+            description = parts[1] if len(parts) > 1 else ''
+
+        path = path.strip()
+        description = description.strip().lstrip('-').strip()
         is_dir = path.endswith('/')
-        
-        if indent_level > prev_indent:
-            if path_stack and prev_indent >= 0:
-                path_stack.append(path_stack[-1])
-        elif indent_level < prev_indent:
-            for _ in range(prev_indent - indent_level):
-                if path_stack:
-                    path_stack.pop()
-        
+
+        parent_path = depth_dirs.get(indent_level - 1, '') if indent_level > 0 else ''
         indent = '  ' * indent_level
-        
         item_html = f"{indent}* "
-        
+
         if is_dir:
             dir_name = path.rstrip('/')
-            # Build full directory path
-            parent_path = path_stack[indent_level-1] if indent_level > 0 and path_stack else ""
             full_dir_path = f"{parent_path}/{dir_name}" if parent_path else dir_name
-            full_dir_path = full_dir_path.lstrip('/')
-            
-            if full_dir_path == "basilisk/src" or full_dir_path.startswith("basilisk/src/"):
-                # For basilisk/src directories, link to basilisk.fr or just show as text
-                if full_dir_path == "basilisk/src":
-                    item_html += f"**[{path}](https://basilisk.fr/src/)** - {description}"
-                else:
-                    # Subdirectories under basilisk/src
-                    basilisk_subpath = full_dir_path.replace('basilisk/src/', '')
-                    item_html += f"**[{path}](https://basilisk.fr/src/{basilisk_subpath})** - {description}"
+            full_dir_path = full_dir_path.strip('/')
+
+            # Drop deeper cached paths when moving to this depth.
+            for depth in list(depth_dirs.keys()):
+                if depth >= indent_level:
+                    del depth_dirs[depth]
+            depth_dirs[indent_level] = full_dir_path
+
+            if full_dir_path == "basilisk":
+                link_url = "https://basilisk.fr/"
+            elif full_dir_path == "basilisk/src":
+                link_url = "https://basilisk.fr/src/"
+            elif full_dir_path.startswith("basilisk/src/"):
+                link_url = f"https://basilisk.fr/src/{full_dir_path.replace('basilisk/src/', '')}"
+            elif full_dir_path.split('/')[0] in SOURCE_DIRS:
+                link_url = full_dir_path
             else:
-                item_html += f"**[{path}]({dir_name})** - {description}"
-            
-            if len(path_stack) <= indent_level:
-                path_stack.append(full_dir_path)
-            else:
-                path_stack[indent_level] = full_dir_path
+                link_url = f"https://github.com/{GITHUB_ORG}/{GITHUB_REPO}/tree/main/{full_dir_path}"
+
+            item_html += f"**[{path}]({link_url})**"
         else:
-            parent_path = path_stack[indent_level-1] if indent_level > 0 and path_stack else ""
-            
             file_path = f"{parent_path}/{path}" if parent_path else path
-            file_path = file_path.lstrip('/')
-            
-            # Check if this file is under basilisk/src
-            if file_path.startswith('basilisk/src/'):
-                # Link to external Basilisk documentation
-                basilisk_path = file_path.replace('basilisk/src/', '')
-                item_html += f"**[{path}](https://basilisk.fr/src/{basilisk_path})** - {description}"
+            file_path = file_path.strip('/')
+            suffix = Path(file_path).suffix.lower()
+
+            if file_path.startswith("basilisk/src/"):
+                link_url = f"https://basilisk.fr/src/{file_path.replace('basilisk/src/', '')}"
+            elif file_path == "README.md":
+                link_url = "index.html"
+            elif suffix in generated_suffixes:
+                link_url = f"{file_path}.html"
             else:
-                # Link to local documentation
-                item_html += f"**[{path}]({file_path}.html)** - {description}"
-        
+                link_url = f"https://github.com/{GITHUB_ORG}/{GITHUB_REPO}/blob/main/{file_path}"
+
+            item_html += f"**[{path}]({link_url})**"
+
+        if description:
+            item_html += f" - {description}"
+
         html_structure.append(item_html)
-        prev_indent = indent_level
-    
+
     html_structure.append('</div>')
-    
+
     html_tree = '\n'.join(html_structure)
     modified_content = readme_content.replace(tree_match.group(0), html_tree)
-    
+
     return modified_content
 
 def generate_directory_index(directory_name: str, directory_path: Path, generated_files: Dict[Path, Path], docs_dir: Path, repo_root: Path) -> bool:
