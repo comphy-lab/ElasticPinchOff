@@ -19,6 +19,15 @@ fluid 1 and `f = 0` in fluid 2. Densities and viscosities are `rho1`,
 
 scalar f[], * interfaces = {f};
 
+/**
+## Phase Properties
+
+Material parameters for both phases:
+- density: `rho1`, `rho2`
+- viscosity: `mu1`, `mu2`
+- elastic modulus: `G1`, `G2`
+- relaxation time: `lambda1`, `lambda2`
+*/
 double rho1 = 1., mu1 = 0., rho2 = 1., mu2 = 0.;
 double G1 = 0., G2 = 0.; // elastic moduli
 double lambda1 = 0., lambda2 = 0.; // relaxation times
@@ -34,6 +43,11 @@ scalar rhov[];
 scalar Gpd[];
 scalar lambdapd[];
 
+/**
+## Event: defaults
+
+Registers custom face/cell property fields used by the centered solver.
+*/
 event defaults (i = 0) {
   alpha = alphav;
   rho = rhov;
@@ -70,6 +84,12 @@ scalar sf[];
 # define sf f
 #endif
 
+/**
+## Event: tracer_advection
+
+When filtering is enabled, computes a smoothed volume fraction field `sf`
+used for robust property interpolation across sharp interfaces.
+*/
 event tracer_advection (i++) {
 
   /**
@@ -100,8 +120,14 @@ event tracer_advection (i++) {
 #endif
 }
 
+/**
+## Event: properties
+
+Updates face-centered specific volume/viscosity and cell-centered density,
+elastic modulus, and relaxation time based on `sf`.
+*/
 event properties (i++) {
-  
+
   foreach_face() {
     double ff = (sf[] + sf[-1])/2.;
     alphav.x[] = fm.x[]/rho(ff);

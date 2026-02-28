@@ -1,5 +1,15 @@
 /**
-# 1 is the VE liquid and 2 is the Newtonian gas.
+# LiquidOutThinning
+
+Axisymmetric viscoelastic liquid pinch-off simulation using Basilisk and
+log-conformation rheology.
+
+Fluid assignment:
+- Fluid 1 (`f = 1`): viscoelastic liquid thread
+- Fluid 2 (`f = 0`): surrounding Newtonian gas
+
+Runtime parameters are loaded from a `key=value` file through
+`src-local/params.h`.
 */
 
 #include "axi.h"
@@ -15,6 +25,9 @@
 #include "distance.h"
 #include "params.h"
 
+/**
+## Output and Adaptivity Controls
+*/
 #define SNAP_INTERVAL (1e-3)
 // Error tolerances
 #define fErr (1e-3)   // error tolerance in f1 VOF
@@ -24,14 +37,27 @@
 
 #define epsilon (0.05)
 
-// boundary conditions
+/**
+## Boundary Conditions
+*/
 u.n[top] = neumann(0.);
 p[top] = dirichlet(0.);
 
+/**
+## Global Runtime Variables
+
+These are populated from the parameter file using default fallbacks.
+*/
 int MAXlevel, CaseNo;
 double Oh, Oha, De, Ec, tmax;
 char nameOut[128], dumpFile[128], logFile[128];
 
+/**
+## Main Program
+
+Initializes parameters, configures material properties, and enters the
+Basilisk event loop.
+*/
 int main (int argc, char const *argv[])
 {
   const char *paramFile = NULL;
@@ -65,7 +91,7 @@ int main (int argc, char const *argv[])
   system("mkdir -p intermediate");
 
   // Name of the restart file. See writingFiles event.
-  sprintf(dumpFile, "dump");
+  sprintf(dumpFile, "restart");
   sprintf(logFile, "c%d-log", CaseNo);
 
   rho1 = 1.; rho2 = 1e-3;
@@ -89,6 +115,12 @@ int main (int argc, char const *argv[])
   run();
 }
 
+/**
+## Event: Initialization
+
+Restores from `restart` if available; otherwise initializes the thread
+interface profile.
+*/
 event init (t = 0)
 {
   if (!restore(file = dumpFile))
@@ -102,6 +134,8 @@ event adapt (i++)
 {
   scalar KAPPA[];
   curvature(f, KAPPA);
+  /**
+  Refine/coarsen on interface, velocity, conformation, and curvature. */
   adapt_wavelet((scalar *) {f, u.x, u.y, A11, A22, A12, AThTh, KAPPA},
                 (double []) {fErr, VelErr, VelErr, AErr, AErr, AErr, AErr, KErr},
                 MAXlevel, 6);
@@ -125,6 +159,8 @@ event stopSimulation (t = tmax)
   if (pid() == 0)
     fprintf(ferr, "Case %d complete. Level %d, De %2.1e, Ec %2.1e, Oh %2.1e\n",
             CaseNo, MAXlevel, De, Ec, Oh);
+  /**
+  Returning non-zero from an event stops the simulation loop. */
   return 1;
 }
 
@@ -137,6 +173,9 @@ event logWriting (i++)
 {
   double ke = 0.;
   FILE *fp = NULL;
+
+  /**
+  Compute total kinetic energy in axisymmetric coordinates. */
   foreach (reduction(+:ke))
     ke += (2*pi*y)*(0.5*rho(f[])*(sq(u.x[]) + sq(u.y[])))*sq(Delta);
 

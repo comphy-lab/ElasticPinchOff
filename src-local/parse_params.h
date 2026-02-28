@@ -1,7 +1,15 @@
 /**
 # parse_params.h
 
-Low-level key=value parameter map used by params.h.
+Low-level key/value parameter storage and loader used by `params.h`.
+
+This header manages:
+- loading `key=value` parameter files,
+- storing parsed entries in an internal map,
+- retrieving raw string values.
+
+Type conversion (`int`, `double`, `bool`) is intentionally handled in
+`params.h`.
 */
 
 #ifndef PARSE_PARAMS_H
@@ -29,12 +37,23 @@ typedef struct {
   char value[PARSE_PARAMS_VALUE_LEN];
 } ParseParamEntry;
 
+/**
+## Internal Storage
+
+Static storage keeps the implementation header-only and convenient for
+single-binary simulation workflows.
+*/
 static ParseParamEntry _parse_params_entries[PARSE_PARAMS_MAX_ENTRIES];
 static int _parse_params_count = 0;
 static bool _parse_params_loaded = false;
 static bool _parse_params_warned_missing = false;
 static char _parse_params_file[PARSE_PARAMS_VALUE_LEN] = "case.params";
 
+/**
+### parse_params_trim()
+
+Trims leading and trailing ASCII whitespace in-place.
+*/
 static inline char * parse_params_trim (char * s)
 {
   if (!s)
@@ -50,6 +69,11 @@ static inline char * parse_params_trim (char * s)
   return s;
 }
 
+/**
+### parse_params_find_key()
+
+Returns the index for `key`, or `-1` if missing.
+*/
 static inline int parse_params_find_key (const char * key)
 {
   for (int i = 0; i < _parse_params_count; i++)
@@ -58,6 +82,11 @@ static inline int parse_params_find_key (const char * key)
   return -1;
 }
 
+/**
+### parse_params_set_value()
+
+Inserts or updates one key/value entry in the internal storage.
+*/
 static inline void parse_params_set_value (const char * key,
                                            const char * value)
 {
@@ -81,6 +110,20 @@ static inline void parse_params_set_value (const char * key,
   _parse_params_entries[idx].value[PARSE_PARAMS_VALUE_LEN - 1] = '\0';
 }
 
+/**
+### parse_params_load()
+
+Loads parameters from `filename`.
+
+Parsing rules:
+- comments begin with `#`,
+- each valid line is `key=value`,
+- malformed lines without `=` are ignored.
+
+#### Returns
+- `0` on successful load,
+- `-1` when the file is not found.
+*/
 static inline int parse_params_load (const char * filename)
 {
   _parse_params_count = 0;
@@ -120,6 +163,12 @@ static inline int parse_params_load (const char * filename)
   return 0;
 }
 
+/**
+### parse_params_init_from_argv()
+
+Selects parameter file from `argv[1]` or defaults to `case.params`,
+then attempts to load it.
+*/
 static inline void parse_params_init_from_argv (int argc,
                                                 const char * argv[])
 {
@@ -135,12 +184,22 @@ static inline void parse_params_init_from_argv (int argc,
   (void) parse_params_load(_parse_params_file);
 }
 
+/**
+### parse_params_ensure_loaded()
+
+Lazy-load helper used by lookup routines.
+*/
 static inline void parse_params_ensure_loaded (void)
 {
   if (!_parse_params_loaded)
     (void) parse_params_load(_parse_params_file);
 }
 
+/**
+### parse_param_string()
+
+Returns the raw string value for `key` or `default_value` when missing.
+*/
 static inline const char * parse_param_string (const char * key,
                                                const char * default_value)
 {
