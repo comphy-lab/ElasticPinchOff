@@ -50,3 +50,16 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+*.html
+
+# Basilisk local/tooling folders
+basilisk/
+.comphy-basilisk/
+.project_config
+
+# Generated simulation outputs
+simulationCases/[0-9]*/
+simulationCases/*/intermediate/
+simulationCases/*/dump
+simulationCases/*/restart
+simulationCases/*/c*-log

@@ -1,0 +1,8 @@
+# Base parameters for simulationCases/LiquidOutThinning.c
+CaseNo=1000
+MAXlevel=10
+Oh=1.0
+De=1e30
+Ec=1.0
+tmax=200
+dtmax=1e-5
