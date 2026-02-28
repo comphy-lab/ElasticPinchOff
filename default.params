@@ -3,6 +3,6 @@ CaseNo=1000
 MAXlevel=13
 Oh=1.0
 De=1e30
-Ec=1.0
+Ec=0.1
 tmax=200
 dtmax=1e-5
