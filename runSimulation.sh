@@ -209,9 +209,19 @@ cd "$CASE_DIR"
 
 echo "Compiling ${SRC_FILE_LOCAL} ..."
 if [[ $USE_MPI -eq 1 ]]; then
-  CC99='mpicc -std=c99 -D_GNU_SOURCE=1' qcc -I../../src-local \
-    -Wall -O2 -D_MPI=1 -disable-dimensions \
-    "$SRC_FILE_LOCAL" -o "$EXECUTABLE_NAME" -lm
+  OS_NAME="$(uname -s)"
+  if [[ "$OS_NAME" == "Darwin" ]]; then
+    CC99='mpicc -std=c99' qcc -I../../src-local \
+      -Wall -O2 -D_MPI=1 -disable-dimensions \
+      "$SRC_FILE_LOCAL" -o "$EXECUTABLE_NAME" -lm
+  elif [[ "$OS_NAME" == "Linux" ]]; then
+    CC99='mpicc -std=c99 -D_GNU_SOURCE=1' qcc -I../../src-local \
+      -Wall -O2 -disable-dimensions \
+      "$SRC_FILE_LOCAL" -o "$EXECUTABLE_NAME" -lm
+  else
+    echo "ERROR: Unsupported OS for --mpi compile flags: ${OS_NAME}" >&2
+    exit 1
+  fi
 else
   qcc -I../../src-local -Wall -O2 -disable-dimensions \
     "$SRC_FILE_LOCAL" -o "$EXECUTABLE_NAME" -lm
