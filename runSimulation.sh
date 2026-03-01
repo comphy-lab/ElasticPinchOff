@@ -6,7 +6,7 @@
 # source file, compiles the selected case, and runs it.
 #
 # Usage:
-#   bash runSimulation.sh [params_file] [--exec exec_code] [--mpi] [--CPUs N]
+#   bash runSimulation.sh [params_file] [--exec exec_code] [--threads N]
 
 set -euo pipefail
 
@@ -21,8 +21,9 @@ Arguments:
 
 Options:
   --exec FILE    C source in simulationCases/ (default: LiquidOutThinning.c)
-  --mpi          Compile/run with MPI (qcc + mpicc wrapper, mpirun)
-  --CPUs N       MPI process count for --mpi (default: 4)
+  --threads N    OpenMP thread count (default: 4)
+  --CPUs N       Deprecated alias for --threads
+  --mpi          Deprecated; ignored (OpenMP is always used)
   -h, --help     Show this help message
 EOF
 }
@@ -50,8 +51,9 @@ get_param_value() {
 EXEC_CODE="LiquidOutThinning.c"
 PARAM_FILE="default.params"
 PARAM_FILE_SET=0
-USE_MPI=0
-MPI_CPUS=4
+OMP_THREADS=4
+LEGACY_MPI_REQUESTED=0
+LEGACY_CPUS_FLAG=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -73,7 +75,20 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --mpi)
-      USE_MPI=1
+      LEGACY_MPI_REQUESTED=1
+      shift
+      ;;
+    --threads)
+      if [[ -z "${2:-}" ]]; then
+        echo "ERROR: $1 requires a positive integer value." >&2
+        usage
+        exit 1
+      fi
+      OMP_THREADS="$2"
+      shift 2
+      ;;
+    --threads=*)
+      OMP_THREADS="${1#*=}"
       shift
       ;;
     --CPUs|--cpus)
@@ -82,11 +97,13 @@ while [[ $# -gt 0 ]]; do
         usage
         exit 1
       fi
-      MPI_CPUS="$2"
+      LEGACY_CPUS_FLAG=1
+      OMP_THREADS="$2"
       shift 2
       ;;
     --CPUs=*|--cpus=*)
-      MPI_CPUS="${1#*=}"
+      LEGACY_CPUS_FLAG=1
+      OMP_THREADS="${1#*=}"
       shift
       ;;
     --)
@@ -118,9 +135,16 @@ if [[ $# -gt 0 ]]; then
   exit 1
 fi
 
-if [[ ! "$MPI_CPUS" =~ ^[1-9][0-9]*$ ]]; then
-  echo "ERROR: --CPUs must be a positive integer, got: $MPI_CPUS" >&2
+if [[ ! "$OMP_THREADS" =~ ^[1-9][0-9]*$ ]]; then
+  echo "ERROR: --threads must be a positive integer, got: $OMP_THREADS" >&2
   exit 1
+fi
+
+if [[ $LEGACY_MPI_REQUESTED -eq 1 ]]; then
+  echo "WARNING: --mpi is deprecated and ignored; using OpenMP." >&2
+fi
+if [[ $LEGACY_CPUS_FLAG -eq 1 ]]; then
+  echo "WARNING: --CPUs/--cpus is deprecated; use --threads." >&2
 fi
 
 if [[ "$EXEC_CODE" != *.c ]]; then
@@ -140,17 +164,6 @@ if ! command -v qcc >/dev/null 2>&1; then
   echo "ERROR: qcc not found in PATH." >&2
   echo "Hint: source your Basilisk environment or provide .project_config." >&2
   exit 1
-fi
-
-if [[ $USE_MPI -eq 1 ]]; then
-  if ! command -v mpicc >/dev/null 2>&1; then
-    echo "ERROR: mpicc not found in PATH (required for --mpi)." >&2
-    exit 1
-  fi
-  if ! command -v mpirun >/dev/null 2>&1; then
-    echo "ERROR: mpirun not found in PATH (required for --mpi)." >&2
-    exit 1
-  fi
 fi
 
 if [[ ! -f "$PARAM_FILE" ]]; then
@@ -192,11 +205,7 @@ echo "Source file: ${EXEC_CODE}"
 echo "Parameter file: ${PARAM_FILE}"
 echo "CaseNo: ${CASE_NO}"
 echo "Case directory: ${CASE_DIR}"
-if [[ $USE_MPI -eq 1 ]]; then
-  echo "Run mode: MPI (np=${MPI_CPUS})"
-else
-  echo "Run mode: Serial"
-fi
+echo "Run mode: OpenMP (threads=${OMP_THREADS})"
 echo "Expected log file: ${CASE_LOG_FILE}"
 echo "========================================="
 echo ""
@@ -208,24 +217,8 @@ cp "$SRC_FILE_ORIG" "$CASE_DIR/$SRC_FILE_LOCAL"
 cd "$CASE_DIR"
 
 echo "Compiling ${SRC_FILE_LOCAL} ..."
-if [[ $USE_MPI -eq 1 ]]; then
-  OS_NAME="$(uname -s)"
-  if [[ "$OS_NAME" == "Darwin" ]]; then
-    CC99='mpicc -std=c99' qcc -I../../src-local \
-      -Wall -O2 -D_MPI=1 -disable-dimensions \
-      "$SRC_FILE_LOCAL" -o "$EXECUTABLE_NAME" -lm
-  elif [[ "$OS_NAME" == "Linux" ]]; then
-    CC99='mpicc -std=c99 -D_GNU_SOURCE=1' qcc -I../../src-local \
-      -Wall -O2 -disable-dimensions \
-      "$SRC_FILE_LOCAL" -o "$EXECUTABLE_NAME" -lm
-  else
-    echo "ERROR: Unsupported OS for --mpi compile flags: ${OS_NAME}" >&2
-    exit 1
-  fi
-else
-  qcc -I../../src-local -Wall -O2 -disable-dimensions \
-    "$SRC_FILE_LOCAL" -o "$EXECUTABLE_NAME" -lm
-fi
+qcc -I../../src-local -O2 -Wall -disable-dimensions -fopenmp \
+  "$SRC_FILE_LOCAL" -o "$EXECUTABLE_NAME" -lm
 echo "Compilation successful: $EXECUTABLE_NAME"
 echo ""
 
@@ -233,20 +226,11 @@ if [[ -f "restart" ]]; then
   echo "Restart file found - simulation will resume from checkpoint."
 fi
 
-if [[ $USE_MPI -eq 1 ]]; then
-  echo "Running: mpirun -np ${MPI_CPUS} ./${EXECUTABLE_NAME} case.params"
-  if mpirun -np "$MPI_CPUS" ./"$EXECUTABLE_NAME" case.params; then
-    EXIT_CODE=0
-  else
-    EXIT_CODE=$?
-  fi
+echo "Running: OMP_NUM_THREADS=${OMP_THREADS} ./${EXECUTABLE_NAME} case.params"
+if OMP_NUM_THREADS="$OMP_THREADS" ./"$EXECUTABLE_NAME" case.params; then
+  EXIT_CODE=0
 else
-  echo "Running: ./${EXECUTABLE_NAME} case.params"
-  if ./"$EXECUTABLE_NAME" case.params; then
-    EXIT_CODE=0
-  else
-    EXIT_CODE=$?
-  fi
+  EXIT_CODE=$?
 fi
 
 echo ""
