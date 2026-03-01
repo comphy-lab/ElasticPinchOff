@@ -646,48 +646,58 @@ window.baseDomain = "https://comphy-lab.org/ElasticPinchOff";
 <span id="cb1-209"><a href="#cb1-209" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-210"><a href="#cb1-210" aria-hidden="true" tabindex="-1"></a><span class="bu">echo</span> <span class="st">&quot;Compiling </span><span class="dt">\$</span><span class="st">{SRC_FILE_LOCAL} ...&quot;</span></span>
 <span id="cb1-211"><a href="#cb1-211" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="kw">[[</span> <span class="dt">\$</span>USE_MPI <span class="ot">-eq</span> 1 <span class="kw">]];</span> <span class="cf">then</span></span>
-<span id="cb1-212"><a href="#cb1-212" aria-hidden="true" tabindex="-1"></a>  <span class="va">CC99</span><span class="op">=</span><span class="st">&#39;mpicc -std=c99 -D_GNU_SOURCE=1&#39;</span> <span class="ex">qcc</span> <span class="at">-I..</span>/../src-local <span class="dt">\</span></span>
-<span id="cb1-213"><a href="#cb1-213" aria-hidden="true" tabindex="-1"></a>    <span class="at">-Wall</span> <span class="at">-O2</span> <span class="at">-D_MPI</span><span class="op">=</span>1 <span class="at">-disable-dimensions</span> <span class="dt">\</span></span>
-<span id="cb1-214"><a href="#cb1-214" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;</span><span class="dt">\$</span><span class="st">SRC_FILE_LOCAL&quot;</span> <span class="at">-o</span> <span class="st">&quot;</span><span class="dt">\$</span><span class="st">EXECUTABLE_NAME&quot;</span> <span class="at">-lm</span></span>
-<span id="cb1-215"><a href="#cb1-215" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span></span>
-<span id="cb1-216"><a href="#cb1-216" aria-hidden="true" tabindex="-1"></a>  <span class="ex">qcc</span> <span class="at">-I..</span>/../src-local <span class="at">-Wall</span> <span class="at">-O2</span> <span class="at">-disable-dimensions</span> <span class="dt">\</span></span>
-<span id="cb1-217"><a href="#cb1-217" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;</span><span class="dt">\$</span><span class="st">SRC_FILE_LOCAL&quot;</span> <span class="at">-o</span> <span class="st">&quot;</span><span class="dt">\$</span><span class="st">EXECUTABLE_NAME&quot;</span> <span class="at">-lm</span></span>
-<span id="cb1-218"><a href="#cb1-218" aria-hidden="true" tabindex="-1"></a><span class="cf">fi</span></span>
-<span id="cb1-219"><a href="#cb1-219" aria-hidden="true" tabindex="-1"></a><span class="bu">echo</span> <span class="st">&quot;Compilation successful: </span><span class="dt">\$</span><span class="st">EXECUTABLE_NAME&quot;</span></span>
-<span id="cb1-220"><a href="#cb1-220" aria-hidden="true" tabindex="-1"></a><span class="bu">echo</span> <span class="st">&quot;&quot;</span></span>
-<span id="cb1-221"><a href="#cb1-221" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-222"><a href="#cb1-222" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="kw">[[</span> <span class="ot">-f</span> <span class="st">&quot;restart&quot;</span> <span class="kw">]];</span> <span class="cf">then</span></span>
-<span id="cb1-223"><a href="#cb1-223" aria-hidden="true" tabindex="-1"></a>  <span class="bu">echo</span> <span class="st">&quot;Restart file found - simulation will resume from checkpoint.&quot;</span></span>
-<span id="cb1-224"><a href="#cb1-224" aria-hidden="true" tabindex="-1"></a><span class="cf">fi</span></span>
-<span id="cb1-225"><a href="#cb1-225" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-226"><a href="#cb1-226" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="kw">[[</span> <span class="dt">\$</span>USE_MPI <span class="ot">-eq</span> 1 <span class="kw">]];</span> <span class="cf">then</span></span>
-<span id="cb1-227"><a href="#cb1-227" aria-hidden="true" tabindex="-1"></a>  <span class="bu">echo</span> <span class="st">&quot;Running: mpirun -np </span><span class="dt">\$</span><span class="st">{MPI_CPUS} ./</span><span class="dt">\$</span><span class="st">{EXECUTABLE_NAME} case.params&quot;</span></span>
-<span id="cb1-228"><a href="#cb1-228" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> <span class="ex">mpirun</span> <span class="at">-np</span> <span class="st">&quot;</span><span class="dt">\$</span><span class="st">MPI_CPUS&quot;</span> ./<span class="st">&quot;</span><span class="dt">\$</span><span class="st">EXECUTABLE_NAME&quot;</span> case.params<span class="kw">;</span> <span class="cf">then</span></span>
-<span id="cb1-229"><a href="#cb1-229" aria-hidden="true" tabindex="-1"></a>    <span class="va">EXIT_CODE</span><span class="op">=</span>0</span>
-<span id="cb1-230"><a href="#cb1-230" aria-hidden="true" tabindex="-1"></a>  <span class="cf">else</span></span>
-<span id="cb1-231"><a href="#cb1-231" aria-hidden="true" tabindex="-1"></a>    <span class="va">EXIT_CODE</span><span class="op">=</span><span class="dt">\$</span><span class="pp">?</span></span>
-<span id="cb1-232"><a href="#cb1-232" aria-hidden="true" tabindex="-1"></a>  <span class="cf">fi</span></span>
-<span id="cb1-233"><a href="#cb1-233" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span></span>
-<span id="cb1-234"><a href="#cb1-234" aria-hidden="true" tabindex="-1"></a>  <span class="bu">echo</span> <span class="st">&quot;Running: ./</span><span class="dt">\$</span><span class="st">{EXECUTABLE_NAME} case.params&quot;</span></span>
-<span id="cb1-235"><a href="#cb1-235" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> <span class="ex">./</span><span class="st">&quot;</span><span class="dt">\$</span><span class="st">EXECUTABLE_NAME&quot;</span> case.params<span class="kw">;</span> <span class="cf">then</span></span>
-<span id="cb1-236"><a href="#cb1-236" aria-hidden="true" tabindex="-1"></a>    <span class="va">EXIT_CODE</span><span class="op">=</span>0</span>
-<span id="cb1-237"><a href="#cb1-237" aria-hidden="true" tabindex="-1"></a>  <span class="cf">else</span></span>
-<span id="cb1-238"><a href="#cb1-238" aria-hidden="true" tabindex="-1"></a>    <span class="va">EXIT_CODE</span><span class="op">=</span><span class="dt">\$</span><span class="pp">?</span></span>
-<span id="cb1-239"><a href="#cb1-239" aria-hidden="true" tabindex="-1"></a>  <span class="cf">fi</span></span>
-<span id="cb1-240"><a href="#cb1-240" aria-hidden="true" tabindex="-1"></a><span class="cf">fi</span></span>
-<span id="cb1-241"><a href="#cb1-241" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-242"><a href="#cb1-242" aria-hidden="true" tabindex="-1"></a><span class="bu">echo</span> <span class="st">&quot;&quot;</span></span>
-<span id="cb1-243"><a href="#cb1-243" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="kw">[[</span> <span class="dt">\$</span>EXIT_CODE <span class="ot">-eq</span> 0 <span class="kw">]];</span> <span class="cf">then</span></span>
-<span id="cb1-244"><a href="#cb1-244" aria-hidden="true" tabindex="-1"></a>  <span class="bu">echo</span> <span class="st">&quot;Simulation completed successfully.&quot;</span></span>
-<span id="cb1-245"><a href="#cb1-245" aria-hidden="true" tabindex="-1"></a>  <span class="bu">echo</span> <span class="st">&quot;Output location: simulationCases/</span><span class="dt">\$</span><span class="st">{CASE_NO}/&quot;</span></span>
-<span id="cb1-246"><a href="#cb1-246" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> <span class="kw">[[</span> <span class="ot">-f</span> <span class="st">&quot;</span><span class="dt">\$</span><span class="st">{CASE_LOG_FILE}&quot;</span> <span class="kw">]];</span> <span class="cf">then</span></span>
-<span id="cb1-247"><a href="#cb1-247" aria-hidden="true" tabindex="-1"></a>    <span class="bu">echo</span> <span class="st">&quot;Log file: simulationCases/</span><span class="dt">\$</span><span class="st">{CASE_NO}/</span><span class="dt">\$</span><span class="st">{CASE_LOG_FILE}&quot;</span></span>
-<span id="cb1-248"><a href="#cb1-248" aria-hidden="true" tabindex="-1"></a>  <span class="cf">fi</span></span>
-<span id="cb1-249"><a href="#cb1-249" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span></span>
-<span id="cb1-250"><a href="#cb1-250" aria-hidden="true" tabindex="-1"></a>  <span class="bu">echo</span> <span class="st">&quot;Simulation failed with exit code: </span><span class="dt">\$</span><span class="st">EXIT_CODE&quot;</span></span>
-<span id="cb1-251"><a href="#cb1-251" aria-hidden="true" tabindex="-1"></a><span class="cf">fi</span></span>
-<span id="cb1-252"><a href="#cb1-252" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-253"><a href="#cb1-253" aria-hidden="true" tabindex="-1"></a><span class="bu">exit</span> <span class="st">&quot;</span><span class="dt">\$</span><span class="st">EXIT_CODE&quot;</span></span></code></pre></div></div>
+<span id="cb1-212"><a href="#cb1-212" aria-hidden="true" tabindex="-1"></a>  <span class="va">OS_NAME</span><span class="op">=</span><span class="st">&quot;</span><span class="dt">\$</span><span class="st">(uname -s)&quot;</span></span>
+<span id="cb1-213"><a href="#cb1-213" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> <span class="kw">[[</span> <span class="st">&quot;</span><span class="dt">\$</span><span class="st">OS_NAME&quot;</span> <span class="ot">==</span> <span class="st">&quot;Darwin&quot;</span> <span class="kw">]];</span> <span class="cf">then</span></span>
+<span id="cb1-214"><a href="#cb1-214" aria-hidden="true" tabindex="-1"></a>    <span class="va">CC99</span><span class="op">=</span><span class="st">&#39;mpicc -std=c99&#39;</span> <span class="ex">qcc</span> <span class="at">-I..</span>/../src-local <span class="dt">\</span></span>
+<span id="cb1-215"><a href="#cb1-215" aria-hidden="true" tabindex="-1"></a>      <span class="at">-Wall</span> <span class="at">-O2</span> <span class="at">-D_MPI</span><span class="op">=</span>1 <span class="at">-disable-dimensions</span> <span class="dt">\</span></span>
+<span id="cb1-216"><a href="#cb1-216" aria-hidden="true" tabindex="-1"></a>      <span class="st">&quot;</span><span class="dt">\$</span><span class="st">SRC_FILE_LOCAL&quot;</span> <span class="at">-o</span> <span class="st">&quot;</span><span class="dt">\$</span><span class="st">EXECUTABLE_NAME&quot;</span> <span class="at">-lm</span></span>
+<span id="cb1-217"><a href="#cb1-217" aria-hidden="true" tabindex="-1"></a>  <span class="cf">elif</span> <span class="kw">[[</span> <span class="st">&quot;</span><span class="dt">\$</span><span class="st">OS_NAME&quot;</span> <span class="ot">==</span> <span class="st">&quot;Linux&quot;</span> <span class="kw">]];</span> <span class="cf">then</span></span>
+<span id="cb1-218"><a href="#cb1-218" aria-hidden="true" tabindex="-1"></a>    <span class="va">CC99</span><span class="op">=</span><span class="st">&#39;mpicc -std=c99 -D_GNU_SOURCE=1&#39;</span> <span class="ex">qcc</span> <span class="at">-I..</span>/../src-local <span class="dt">\</span></span>
+<span id="cb1-219"><a href="#cb1-219" aria-hidden="true" tabindex="-1"></a>      <span class="at">-Wall</span> <span class="at">-O2</span> <span class="at">-disable-dimensions</span> <span class="dt">\</span></span>
+<span id="cb1-220"><a href="#cb1-220" aria-hidden="true" tabindex="-1"></a>      <span class="st">&quot;</span><span class="dt">\$</span><span class="st">SRC_FILE_LOCAL&quot;</span> <span class="at">-o</span> <span class="st">&quot;</span><span class="dt">\$</span><span class="st">EXECUTABLE_NAME&quot;</span> <span class="at">-lm</span></span>
+<span id="cb1-221"><a href="#cb1-221" aria-hidden="true" tabindex="-1"></a>  <span class="cf">else</span></span>
+<span id="cb1-222"><a href="#cb1-222" aria-hidden="true" tabindex="-1"></a>    <span class="bu">echo</span> <span class="st">&quot;ERROR: Unsupported OS for --mpi compile flags: </span><span class="dt">\$</span><span class="st">{OS_NAME}&quot;</span> <span class="op">&gt;&amp;</span><span class="dv">2</span></span>
+<span id="cb1-223"><a href="#cb1-223" aria-hidden="true" tabindex="-1"></a>    <span class="bu">exit</span> 1</span>
+<span id="cb1-224"><a href="#cb1-224" aria-hidden="true" tabindex="-1"></a>  <span class="cf">fi</span></span>
+<span id="cb1-225"><a href="#cb1-225" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span></span>
+<span id="cb1-226"><a href="#cb1-226" aria-hidden="true" tabindex="-1"></a>  <span class="ex">qcc</span> <span class="at">-I..</span>/../src-local <span class="at">-Wall</span> <span class="at">-O2</span> <span class="at">-disable-dimensions</span> <span class="dt">\</span></span>
+<span id="cb1-227"><a href="#cb1-227" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;</span><span class="dt">\$</span><span class="st">SRC_FILE_LOCAL&quot;</span> <span class="at">-o</span> <span class="st">&quot;</span><span class="dt">\$</span><span class="st">EXECUTABLE_NAME&quot;</span> <span class="at">-lm</span></span>
+<span id="cb1-228"><a href="#cb1-228" aria-hidden="true" tabindex="-1"></a><span class="cf">fi</span></span>
+<span id="cb1-229"><a href="#cb1-229" aria-hidden="true" tabindex="-1"></a><span class="bu">echo</span> <span class="st">&quot;Compilation successful: </span><span class="dt">\$</span><span class="st">EXECUTABLE_NAME&quot;</span></span>
+<span id="cb1-230"><a href="#cb1-230" aria-hidden="true" tabindex="-1"></a><span class="bu">echo</span> <span class="st">&quot;&quot;</span></span>
+<span id="cb1-231"><a href="#cb1-231" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-232"><a href="#cb1-232" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="kw">[[</span> <span class="ot">-f</span> <span class="st">&quot;restart&quot;</span> <span class="kw">]];</span> <span class="cf">then</span></span>
+<span id="cb1-233"><a href="#cb1-233" aria-hidden="true" tabindex="-1"></a>  <span class="bu">echo</span> <span class="st">&quot;Restart file found - simulation will resume from checkpoint.&quot;</span></span>
+<span id="cb1-234"><a href="#cb1-234" aria-hidden="true" tabindex="-1"></a><span class="cf">fi</span></span>
+<span id="cb1-235"><a href="#cb1-235" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-236"><a href="#cb1-236" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="kw">[[</span> <span class="dt">\$</span>USE_MPI <span class="ot">-eq</span> 1 <span class="kw">]];</span> <span class="cf">then</span></span>
+<span id="cb1-237"><a href="#cb1-237" aria-hidden="true" tabindex="-1"></a>  <span class="bu">echo</span> <span class="st">&quot;Running: mpirun -np </span><span class="dt">\$</span><span class="st">{MPI_CPUS} ./</span><span class="dt">\$</span><span class="st">{EXECUTABLE_NAME} case.params&quot;</span></span>
+<span id="cb1-238"><a href="#cb1-238" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> <span class="ex">mpirun</span> <span class="at">-np</span> <span class="st">&quot;</span><span class="dt">\$</span><span class="st">MPI_CPUS&quot;</span> ./<span class="st">&quot;</span><span class="dt">\$</span><span class="st">EXECUTABLE_NAME&quot;</span> case.params<span class="kw">;</span> <span class="cf">then</span></span>
+<span id="cb1-239"><a href="#cb1-239" aria-hidden="true" tabindex="-1"></a>    <span class="va">EXIT_CODE</span><span class="op">=</span>0</span>
+<span id="cb1-240"><a href="#cb1-240" aria-hidden="true" tabindex="-1"></a>  <span class="cf">else</span></span>
+<span id="cb1-241"><a href="#cb1-241" aria-hidden="true" tabindex="-1"></a>    <span class="va">EXIT_CODE</span><span class="op">=</span><span class="dt">\$</span><span class="pp">?</span></span>
+<span id="cb1-242"><a href="#cb1-242" aria-hidden="true" tabindex="-1"></a>  <span class="cf">fi</span></span>
+<span id="cb1-243"><a href="#cb1-243" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span></span>
+<span id="cb1-244"><a href="#cb1-244" aria-hidden="true" tabindex="-1"></a>  <span class="bu">echo</span> <span class="st">&quot;Running: ./</span><span class="dt">\$</span><span class="st">{EXECUTABLE_NAME} case.params&quot;</span></span>
+<span id="cb1-245"><a href="#cb1-245" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> <span class="ex">./</span><span class="st">&quot;</span><span class="dt">\$</span><span class="st">EXECUTABLE_NAME&quot;</span> case.params<span class="kw">;</span> <span class="cf">then</span></span>
+<span id="cb1-246"><a href="#cb1-246" aria-hidden="true" tabindex="-1"></a>    <span class="va">EXIT_CODE</span><span class="op">=</span>0</span>
+<span id="cb1-247"><a href="#cb1-247" aria-hidden="true" tabindex="-1"></a>  <span class="cf">else</span></span>
+<span id="cb1-248"><a href="#cb1-248" aria-hidden="true" tabindex="-1"></a>    <span class="va">EXIT_CODE</span><span class="op">=</span><span class="dt">\$</span><span class="pp">?</span></span>
+<span id="cb1-249"><a href="#cb1-249" aria-hidden="true" tabindex="-1"></a>  <span class="cf">fi</span></span>
+<span id="cb1-250"><a href="#cb1-250" aria-hidden="true" tabindex="-1"></a><span class="cf">fi</span></span>
+<span id="cb1-251"><a href="#cb1-251" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-252"><a href="#cb1-252" aria-hidden="true" tabindex="-1"></a><span class="bu">echo</span> <span class="st">&quot;&quot;</span></span>
+<span id="cb1-253"><a href="#cb1-253" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="kw">[[</span> <span class="dt">\$</span>EXIT_CODE <span class="ot">-eq</span> 0 <span class="kw">]];</span> <span class="cf">then</span></span>
+<span id="cb1-254"><a href="#cb1-254" aria-hidden="true" tabindex="-1"></a>  <span class="bu">echo</span> <span class="st">&quot;Simulation completed successfully.&quot;</span></span>
+<span id="cb1-255"><a href="#cb1-255" aria-hidden="true" tabindex="-1"></a>  <span class="bu">echo</span> <span class="st">&quot;Output location: simulationCases/</span><span class="dt">\$</span><span class="st">{CASE_NO}/&quot;</span></span>
+<span id="cb1-256"><a href="#cb1-256" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> <span class="kw">[[</span> <span class="ot">-f</span> <span class="st">&quot;</span><span class="dt">\$</span><span class="st">{CASE_LOG_FILE}&quot;</span> <span class="kw">]];</span> <span class="cf">then</span></span>
+<span id="cb1-257"><a href="#cb1-257" aria-hidden="true" tabindex="-1"></a>    <span class="bu">echo</span> <span class="st">&quot;Log file: simulationCases/</span><span class="dt">\$</span><span class="st">{CASE_NO}/</span><span class="dt">\$</span><span class="st">{CASE_LOG_FILE}&quot;</span></span>
+<span id="cb1-258"><a href="#cb1-258" aria-hidden="true" tabindex="-1"></a>  <span class="cf">fi</span></span>
+<span id="cb1-259"><a href="#cb1-259" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span></span>
+<span id="cb1-260"><a href="#cb1-260" aria-hidden="true" tabindex="-1"></a>  <span class="bu">echo</span> <span class="st">&quot;Simulation failed with exit code: </span><span class="dt">\$</span><span class="st">EXIT_CODE&quot;</span></span>
+<span id="cb1-261"><a href="#cb1-261" aria-hidden="true" tabindex="-1"></a><span class="cf">fi</span></span>
+<span id="cb1-262"><a href="#cb1-262" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-263"><a href="#cb1-263" aria-hidden="true" tabindex="-1"></a><span class="bu">exit</span> <span class="st">&quot;</span><span class="dt">\$</span><span class="st">EXIT_CODE&quot;</span></span></code></pre></div></div>
             </div>
         </main>
 
