@@ -37,12 +37,11 @@ This case expects runtime keys such as:
 /**
 ## Output and Adaptivity Controls
 */
-#define SNAP_INTERVAL (1e-3)
 // Error tolerances
-#define fErr (1e-3)   // error tolerance in f1 VOF
-#define KErr (1e-6)   // error tolerance in VoF curvature (height-function method)
-#define VelErr (1e-3) // velocity error tolerance
-#define AErr (1e-3)   // conformation error tolerance in liquid
+#define fErr (1e-2)   // error tolerance in f VOF
+#define KErr (1e-4)   // error tolerance in VoF curvature (height-function method)
+#define VelErr (1e-2) // velocity error tolerance
+#define AErr (1e-2)   // conformation error tolerance in liquid
 
 #define epsilon (0.05)
 
@@ -57,8 +56,10 @@ p[top] = dirichlet(0.);
 
 These are populated from the parameter file using default fallbacks.
 */
-int MAXlevel, CaseNo;
+int MAXlevel, MINlevel, maxlevelLocal, CaseNo;
 double Oh, Oha, De, Ec, tmax;
+double tsnap = 0.05; //snapshot saving interval
+
 char nameOut[128], dumpFile[128], logFile[128];
 
 /**
@@ -87,6 +88,9 @@ int main (int argc, char const *argv[])
 
   CaseNo = param_int("CaseNo", 1000);
   MAXlevel = param_int("MAXlevel", 12);
+  MINlevel = max(6, (MAXlevel-4)); // minimum grid res
+  maxlevelLocal = 9;
+
   tmax = param_double("tmax", 2e2);
 
   Oh = param_double("Oh", 1e0);
@@ -94,6 +98,7 @@ int main (int argc, char const *argv[])
   De = param_double("De", 1e30);
   Ec = param_double("Ec", 1e0);
   dtmax = param_double("dtmax", 1e-5); // BEWARE of this for stability issues.
+
 
   if (CaseNo < 1000 || MAXlevel <= 0 || Oh <= 0. || Oha < 0. ||
       De < 0. || Ec < 0. || tmax <= 0. || dtmax <= 0. || dtmax > tmax) {
@@ -147,15 +152,51 @@ event init (t = 0)
 /**
 ## Adaptive Mesh Refinement
 */
-event adapt (i++)
-{
-  scalar KAPPA[];
+scalar Y[], KAPPA[];
+
+event adapt_maxlevel(i++){
   curvature(f, KAPPA);
+  position (f, Y, {0,1});
+  boundary({Y, KAPPA});
+
+  static bool broken = false;
+  double y_min = statsf(Y).min;
+
+  if (y_min <= 0.6){
+    tsnap = 0.01;
+  }//thinning starts
+  if (y_min < 0.1){
+    tsnap = 0.001;
+  }//thins rapidly
+  if (y_min < 0.01){
+    tsnap = 0.0001;
+  }//near pinchoff
+
+#if ADAPT_MAXLEVEL // thanks @SaumiliJana
+  if (!broken){
+    broken = y_min < 1./(1 << maxlevelLocal);
+  }
+
+  if(broken){
+    maxlevelLocal = 10;
+    tsnap = 0.05;
+  } else {
+    while(((statsf(Y).min)<(5*L0/(1<<maxlevelLocal))) && (maxlevelLocal < MAXlevel)){
+      maxlevelLocal = maxlevelLocal + 1;
+    }
+  }
+#else
+  maxlevelLocal = MAXlevel;
+#endif
+
+};
+
+event adapt (i++){
   /**
   Refine/coarsen on interface, velocity, conformation, and curvature. */
   adapt_wavelet((scalar *) {f, u.x, u.y, A11, A22, A12, AThTh, KAPPA},
-                (double []) {fErr, VelErr, VelErr, AErr, AErr, AErr, AErr, KErr},
-                MAXlevel, 6);
+              (double []) {fErr, VelErr, VelErr, AErr, AErr, AErr, AErr, KErr},
+              maxlevelLocal, MINlevel);
 }
 
 /**
@@ -190,7 +231,6 @@ event stopSimulation (t = tmax)
 
 Appends per-iteration diagnostics to `c<CaseNo>-log`.
 */
-scalar Y[];
 
 event logWriting (i++)
 {
