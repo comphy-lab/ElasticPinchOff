@@ -5,8 +5,8 @@ Axisymmetric viscoelastic liquid pinch-off simulation using Basilisk and
 log-conformation rheology.
 
 Fluid assignment:
-- Fluid 1 (`f = 1`): viscoelastic liquid thread
-- Fluid 2 (`f = 0`): surrounding Newtonian gas
+- Fluid 1 (`f = 1`): viscoelastic liquid
+- Fluid 2 (`f = 0`): Newtonian gas
 
 Runtime parameters are loaded from a `key=value` file through
 `src-local/params.h`.
@@ -20,6 +20,8 @@ This case expects runtime keys such as:
 - `De`, `Ec`
 - `tmax`, `dtmax`
 */
+
+#define ADAPT_MAXLEVEL 1
 
 #include "axi.h"
 #include "navier-stokes/centered.h"
@@ -89,7 +91,7 @@ int main (int argc, char const *argv[])
   CaseNo = param_int("CaseNo", 1000);
   MAXlevel = param_int("MAXlevel", 12);
   MINlevel = max(6, (MAXlevel-4)); // minimum grid res
-  maxlevelLocal = 9;
+  maxlevelLocal = 7;
 
   tmax = param_double("tmax", 2e2);
 
@@ -106,8 +108,8 @@ int main (int argc, char const *argv[])
     return 1;
   }
 
-  L0 = 2*pi;
-  init_grid(1 << 8);
+  L0 = 4*pi;
+  init_grid(1 << MINlevel);
 
   // Create a folder where all simulation snapshots are stored.
   system("mkdir -p intermediate");
@@ -154,12 +156,11 @@ event init (t = 0)
 */
 scalar Y[], KAPPA[];
 
-event adapt_maxlevel(i++){
+event adapt_maxlevel (i++) {
   curvature(f, KAPPA);
   position (f, Y, {0,1});
   boundary({Y, KAPPA});
 
-  static bool broken = false;
   double y_min = statsf(Y).min;
 
   if (y_min <= 0.6){
@@ -173,6 +174,7 @@ event adapt_maxlevel(i++){
   }//near pinchoff
 
 #if ADAPT_MAXLEVEL // thanks @SaumiliJana
+  static bool broken = false;
   if (!broken){
     broken = y_min < 1./(1 << maxlevelLocal);
   }
@@ -189,7 +191,7 @@ event adapt_maxlevel(i++){
   maxlevelLocal = MAXlevel;
 #endif
 
-};
+}
 
 event adapt (i++){
   /**
@@ -204,7 +206,7 @@ event adapt (i++){
 
 Writes restart state and time-stamped snapshots to `intermediate/`.
 */
-event writingFiles (t = 0; t += SNAP_INTERVAL; t <= tmax)
+event writingFiles (t = 0; t += tsnap; t <= tmax)
 {
   dump(file = dumpFile);
   sprintf(nameOut, "intermediate/snapshot-%5.4f", t);
