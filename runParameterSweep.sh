@@ -12,13 +12,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 usage() {
   cat <<'EOF'
-Usage: bash runParameterSweep.sh [sweep_file] [--exec exec_code] [OPTIONS]
+Usage: bash runParameterSweep.sh [sweep_file] [--mode in|out] [--exec exec_code] [OPTIONS]
 
 Arguments:
   sweep_file     Sweep config path (default: sweep.params)
 
 Options:
-  --exec FILE    C source in simulationCases/ (default: LiquidOutThinning.c)
+  --mode X       Case mode: in or out (default: in)
+  --exec FILE    C source in simulationCases/ (overrides --mode mapping)
   --mpi          Compile/run each case with MPI via runSimulation.sh
   --CPUs N       MPI process count for --mpi (default: 4)
   -n, --dry-run  Show generated parameter combinations only
@@ -145,7 +146,10 @@ generate_combinations() {
 }
 
 # Defaults
-EXEC_CODE="LiquidOutThinning.c"
+EXEC_CODE=""
+EXEC_CODE_SET=0
+MODE="in"
+MODE_SET=0
 SWEEP_FILE="sweep.params"
 SWEEP_FILE_SET=0
 DRY_RUN=0
@@ -166,10 +170,27 @@ while [[ $# -gt 0 ]]; do
         exit 1
       fi
       EXEC_CODE="$2"
+      EXEC_CODE_SET=1
       shift 2
       ;;
     --exec=*)
       EXEC_CODE="${1#*=}"
+      EXEC_CODE_SET=1
+      shift
+      ;;
+    --mode)
+      if [[ -z "${2:-}" ]]; then
+        echo "ERROR: --mode requires 'in' or 'out'." >&2
+        usage
+        exit 1
+      fi
+      MODE="$2"
+      MODE_SET=1
+      shift 2
+      ;;
+    --mode=*)
+      MODE="${1#*=}"
+      MODE_SET=1
       shift
       ;;
     --mpi)
@@ -231,8 +252,33 @@ if [[ ! "$MPI_CPUS" =~ ^[1-9][0-9]*$ ]]; then
   exit 1
 fi
 
+MODE="$(printf '%s' "$MODE" | tr '[:upper:]' '[:lower:]')"
+if [[ "$MODE" != "in" && "$MODE" != "out" ]]; then
+  echo "ERROR: --mode must be either 'in' or 'out', got: $MODE" >&2
+  exit 1
+fi
+
+if [[ $EXEC_CODE_SET -eq 0 ]]; then
+  if [[ "$MODE" == "in" ]]; then
+    EXEC_CODE="LiquidInThinning.c"
+  else
+    EXEC_CODE="LiquidOutThinning.c"
+  fi
+fi
+
 if [[ "$EXEC_CODE" != *.c ]]; then
   EXEC_CODE="${EXEC_CODE}.c"
+fi
+
+if [[ $MODE_SET -eq 0 ]]; then
+  case "$EXEC_CODE" in
+    LiquidInThinning.c)
+      MODE="in"
+      ;;
+    LiquidOutThinning.c)
+      MODE="out"
+      ;;
+  esac
 fi
 
 if [[ ! "$SWEEP_FILE" = /* ]]; then
@@ -334,6 +380,7 @@ echo "ElasticPinchOff - Parameter Sweep"
 echo "========================================="
 echo "Sweep file: ${SWEEP_FILE}"
 echo "Source file: ${EXEC_CODE}"
+echo "Mode: ${MODE}"
 echo "Base config: ${BASE_CONFIG}"
 echo "Sweep variables: ${#SWEEP_VARS[@]}"
 echo "Cases: ${CASE_START}..${CASE_END} (${COMBINATION_COUNT})"
@@ -368,7 +415,7 @@ for param_file in "${PARAM_FILES[@]}"; do
   echo "Expected log file: c${case_no}-log"
   echo "-----------------------------------------"
 
-  run_cmd=(bash "$RUN_SIM_SCRIPT" "$param_file" --exec "$EXEC_CODE")
+  run_cmd=(bash "$RUN_SIM_SCRIPT" "$param_file" --mode "$MODE" --exec "$EXEC_CODE")
   if [[ $USE_MPI -eq 1 ]]; then
     run_cmd+=(--mpi --CPUs "$MPI_CPUS")
   fi
