@@ -1,0 +1,7 @@
+# Sweep configuration for runParameterSweep.sh
+BASE_CONFIG=default.params
+CASE_START=1000
+
+# Sweep variables of interest.
+SWEEP_De=0.0,1.0,10,100,1e30
+SWEEP_tmax=60

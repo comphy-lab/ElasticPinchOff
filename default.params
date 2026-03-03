@@ -4,5 +4,5 @@ MAXlevel=14
 Oh=1e0
 De=1e30
 Ec=0.1
-tmax=60
+tmax=6
 dtmax=1e-5
