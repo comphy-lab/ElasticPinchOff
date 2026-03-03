@@ -4,7 +4,7 @@
 # Run an ElasticPinchOff parameter sweep from the repository root.
 # The script reads SWEEP_* variables from a sweep config file, generates
 # case-specific parameter files with incrementing CaseNo, then runs each case
-# sequentially using runSimulation.sh.
+# using runSimulation.sh (sequentially by default, optionally in parallel).
 
 set -euo pipefail
 
@@ -20,8 +20,10 @@ Arguments:
 Options:
   --mode X       Case mode: in or out (default: in)
   --exec FILE    C source in simulationCases/ (overrides --mode mapping)
-  --mpi          Compile/run each case with MPI via runSimulation.sh
-  --CPUs N       MPI process count for --mpi (default: 4)
+  --threads N    OpenMP thread count per case (default: 1)
+  --parallel N   Maximum concurrent cases in the sweep (default: 1)
+  --CPUs N       Deprecated alias for --threads
+  --mpi          Deprecated; ignored
   -n, --dry-run  Show generated parameter combinations only
   -v, --verbose  Print expanded per-case parameter details
   -h, --help     Show this help message
@@ -154,8 +156,10 @@ SWEEP_FILE="sweep.params"
 SWEEP_FILE_SET=0
 DRY_RUN=0
 VERBOSE=0
-USE_MPI=0
-MPI_CPUS=4
+OMP_THREADS=1
+MAX_PARALLEL=1
+LEGACY_MPI_REQUESTED=0
+LEGACY_CPUS_FLAG=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -193,8 +197,34 @@ while [[ $# -gt 0 ]]; do
       MODE_SET=1
       shift
       ;;
+    --threads)
+      if [[ -z "${2:-}" ]]; then
+        echo "ERROR: $1 requires a positive integer value." >&2
+        usage
+        exit 1
+      fi
+      OMP_THREADS="$2"
+      shift 2
+      ;;
+    --threads=*)
+      OMP_THREADS="${1#*=}"
+      shift
+      ;;
+    --parallel)
+      if [[ -z "${2:-}" ]]; then
+        echo "ERROR: $1 requires a positive integer value." >&2
+        usage
+        exit 1
+      fi
+      MAX_PARALLEL="$2"
+      shift 2
+      ;;
+    --parallel=*)
+      MAX_PARALLEL="${1#*=}"
+      shift
+      ;;
     --mpi)
-      USE_MPI=1
+      LEGACY_MPI_REQUESTED=1
       shift
       ;;
     --CPUs|--cpus)
@@ -203,11 +233,13 @@ while [[ $# -gt 0 ]]; do
         usage
         exit 1
       fi
-      MPI_CPUS="$2"
+      LEGACY_CPUS_FLAG=1
+      OMP_THREADS="$2"
       shift 2
       ;;
     --CPUs=*|--cpus=*)
-      MPI_CPUS="${1#*=}"
+      LEGACY_CPUS_FLAG=1
+      OMP_THREADS="${1#*=}"
       shift
       ;;
     -n|--dry-run)
@@ -247,8 +279,13 @@ if [[ $# -gt 0 ]]; then
   exit 1
 fi
 
-if [[ ! "$MPI_CPUS" =~ ^[1-9][0-9]*$ ]]; then
-  echo "ERROR: --CPUs must be a positive integer, got: $MPI_CPUS" >&2
+if [[ ! "$OMP_THREADS" =~ ^[1-9][0-9]*$ ]]; then
+  echo "ERROR: --threads must be a positive integer, got: $OMP_THREADS" >&2
+  exit 1
+fi
+
+if [[ ! "$MAX_PARALLEL" =~ ^[1-9][0-9]*$ ]]; then
+  echo "ERROR: --parallel must be a positive integer, got: $MAX_PARALLEL" >&2
   exit 1
 fi
 
@@ -384,10 +421,15 @@ echo "Mode: ${MODE}"
 echo "Base config: ${BASE_CONFIG}"
 echo "Sweep variables: ${#SWEEP_VARS[@]}"
 echo "Cases: ${CASE_START}..${CASE_END} (${COMBINATION_COUNT})"
-if [[ $USE_MPI -eq 1 ]]; then
-  echo "Run mode: MPI (np=${MPI_CPUS})"
+if [[ $OMP_THREADS -gt 1 ]]; then
+  echo "Run mode: OpenMP (threads per case=${OMP_THREADS})"
 else
   echo "Run mode: Serial"
+fi
+if [[ $MAX_PARALLEL -gt 1 ]]; then
+  echo "Sweep execution: Parallel (max concurrent cases=${MAX_PARALLEL})"
+else
+  echo "Sweep execution: Sequential"
 fi
 if [[ $DRY_RUN -eq 1 ]]; then
   echo "Mode: Dry run"
@@ -402,6 +444,47 @@ fi
 
 SUCCESSFUL=0
 FAILED=0
+RUN_PIDS=()
+RUN_CASE_NOS=()
+
+if [[ $LEGACY_MPI_REQUESTED -eq 1 ]]; then
+  echo "WARNING: --mpi is deprecated and ignored." >&2
+fi
+if [[ $LEGACY_CPUS_FLAG -eq 1 ]]; then
+  echo "WARNING: --CPUs/--cpus is deprecated; use --threads." >&2
+fi
+
+wait_for_pid_index() {
+  local idx="$1"
+  local pid="${RUN_PIDS[$idx]}"
+  local case_no="${RUN_CASE_NOS[$idx]}"
+
+  if wait "$pid"; then
+    ((SUCCESSFUL += 1))
+    echo "Case ${case_no} completed."
+  else
+    ((FAILED += 1))
+    echo "ERROR: Case ${case_no} failed." >&2
+  fi
+
+  unset 'RUN_PIDS[idx]'
+  unset 'RUN_CASE_NOS[idx]'
+  RUN_PIDS=("${RUN_PIDS[@]}")
+  RUN_CASE_NOS=("${RUN_CASE_NOS[@]}")
+}
+
+wait_for_one_active_case() {
+  local idx
+  while true; do
+    for idx in "${!RUN_PIDS[@]}"; do
+      if ! kill -0 "${RUN_PIDS[$idx]}" 2>/dev/null; then
+        wait_for_pid_index "$idx"
+        return
+      fi
+    done
+    sleep 1
+  done
+}
 
 for param_file in "${PARAM_FILES[@]}"; do
   case_no="$(get_param_value "CaseNo" "$param_file")"
@@ -410,23 +493,24 @@ for param_file in "${PARAM_FILES[@]}"; do
   tmax_value="$(get_param_value "tmax" "$param_file")"
 
   echo "-----------------------------------------"
-  echo "Running Case ${case_no}"
+  echo "Launching Case ${case_no}"
   echo "Ec=${ec_value:-NA}, De=${de_value:-NA}, tmax=${tmax_value:-NA}"
   echo "Expected log file: c${case_no}-log"
   echo "-----------------------------------------"
 
-  run_cmd=(bash "$RUN_SIM_SCRIPT" "$param_file" --mode "$MODE" --exec "$EXEC_CODE")
-  if [[ $USE_MPI -eq 1 ]]; then
-    run_cmd+=(--mpi --CPUs "$MPI_CPUS")
-  fi
+  run_cmd=(bash "$RUN_SIM_SCRIPT" "$param_file" --mode "$MODE" --exec "$EXEC_CODE" --threads "$OMP_THREADS")
+  "${run_cmd[@]}" &
+  RUN_PIDS+=("$!")
+  RUN_CASE_NOS+=("$case_no")
 
-  if "${run_cmd[@]}"; then
-    ((SUCCESSFUL += 1))
-  else
-    ((FAILED += 1))
-    echo "ERROR: Case ${case_no} failed." >&2
+  if [[ ${#RUN_PIDS[@]} -ge $MAX_PARALLEL ]]; then
+    wait_for_one_active_case
   fi
   echo ""
+done
+
+while [[ ${#RUN_PIDS[@]} -gt 0 ]]; do
+  wait_for_one_active_case
 done
 
 echo "========================================="
