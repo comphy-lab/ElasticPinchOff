@@ -171,7 +171,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="base-url" content="..">
-  <title>simulationCases/LiquidOutThinning.c | ElasticPinchOff</title>
+  <title>simulationCases/LiquidInThinning.c | ElasticPinchOff</title>
 
   <!-- Critical CSS for fastest paint -->
   <style>
@@ -205,7 +205,7 @@
   <meta name="description" content="Axisymmetric viscoelastic liquid pinch-off simulation using Basilisk and log-conformation rheology. Fluid assignment: - Fluid 1 (f = 1): viscoelastic liquid ...">
   <meta name="author" content="CoMPhy Lab">
   <meta name="robots" content="index, follow">
-  <meta name="keywords" content="axi.h, distance.h, liquidoutthinning, log-conform-viscoelastic-scalar-2d.h, log-conform.h, method, navier-stokes/centered.h, navier-stokes/conserving.h, params.h, tension.h">
+  <meta name="keywords" content="axi.h, distance.h, liquidinthinning, log-conform-viscoelastic-scalar-2d.h, log-conform.h, method, navier-stokes/centered.h, navier-stokes/conserving.h, params.h, tension.h">
   <meta name="msapplication-TileColor" content="#da532c">
   <meta name="theme-color" content="#ffffff">
   <meta name="apple-mobile-web-app-title" content="CoMPhy Lab">
@@ -424,11 +424,11 @@ window.baseDomain = "https://comphy-lab.org/ElasticPinchOff";
 
             <div class="page-content">
 
-                                <h1 class="page-title">simulationCases/LiquidOutThinning.c</h1>
+                                <h1 class="page-title">simulationCases/LiquidInThinning.c</h1>
 
 
                                 <div class="raw-file-button-container">
-                    <a href="https://github.com/comphy-lab/ElasticPinchOff/raw/main/simulationCases/LiquidOutThinning.c" class="raw-file-button" target="_blank" rel="noopener noreferrer">
+                    <a href="https://github.com/comphy-lab/ElasticPinchOff/raw/main/simulationCases/LiquidInThinning.c" class="raw-file-button" target="_blank" rel="noopener noreferrer">
                         <i class="fa-brands fa-github"></i> See raw file
                     </a>
                 </div>
@@ -437,8 +437,8 @@ window.baseDomain = "https://comphy-lab.org/ElasticPinchOff";
                 <p>Axisymmetric viscoelastic liquid pinch-off simulation
                 using Basilisk and log-conformation rheology.</p>
                 <p>Fluid assignment: - Fluid 1 (<code>f = 1</code>):
-                viscoelastic liquid - Fluid 2 (<code>f = 0</code>):
-                Newtonian gas</p>
+                viscoelastic liquid thread - Fluid 2
+                (<code>f = 0</code>): surrounding Newtonian gas</p>
                 <p>Runtime parameters are loaded from a
                 <code>key=value</code> file through
                 <code>src-local/params.h</code>.</p>
@@ -572,7 +572,7 @@ window.baseDomain = "https://comphy-lab.org/ElasticPinchOff";
                 class="sourceCode c"><code class="sourceCode c"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>event init <span class="op">(</span>t <span class="op">=</span> <span class="dv">0</span><span class="op">)</span></span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
 <span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> <span class="op">(!</span>restore<span class="op">(</span>file <span class="op">=</span> dumpFile<span class="op">))</span></span>
-<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>    fraction<span class="op">(</span>f<span class="op">,</span> <span class="op">-(</span><span class="dv">1</span> <span class="op">-</span> epsilon<span class="op">*</span>sin<span class="op">(</span>x<span class="op">/</span><span class="dv">4</span><span class="op">)</span> <span class="op">-</span> y<span class="op">));</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>    fraction<span class="op">(</span>f<span class="op">,</span> <span class="op">(</span><span class="dv">1</span> <span class="op">-</span> epsilon<span class="op">*</span>sin<span class="op">(</span>x<span class="op">/</span><span class="dv">4</span><span class="op">)</span> <span class="op">-</span> y<span class="op">));</span></span>
 <span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div></div>
                 <h2 id="adaptive-mesh-refinement">Adaptive Mesh
                 Refinement</h2>
@@ -753,7 +753,7 @@ window.baseDomain = "https://comphy-lab.org/ElasticPinchOff";
               <a href="https://bsky.app/profile/comphy-lab.org" target="_blank" rel="noopener noreferrer" aria-label="Bluesky Profile">
                 <i class="fa-brands fa-bluesky" style="font-size: 2.5em; color: white;"></i>
               </a>
-              <a href="https://github.com/comphy-lab/ElasticPinchOff/edit/main/simulationCases/LiquidOutThinning.c" class="edit-link" aria-label="Edit this page on GitHub">
+              <a href="https://github.com/comphy-lab/ElasticPinchOff/edit/main/simulationCases/LiquidInThinning.c" class="edit-link" aria-label="Edit this page on GitHub">
                 <i class="fa-brands fa-github"></i> Edit this page
               </a>
             </div>
