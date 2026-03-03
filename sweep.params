@@ -3,6 +3,4 @@ BASE_CONFIG=default.params
 CASE_START=1000
 
 # Sweep variables of interest.
-SWEEP_Ec=0.5,1.0,2.0
-SWEEP_De=10,100
-SWEEP_tmax=120
+SWEEP_De=0.0,1.0,10,100,1e30
