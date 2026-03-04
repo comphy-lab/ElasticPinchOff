@@ -63,3 +63,11 @@ simulationCases/*/intermediate/
 simulationCases/*/dump
 simulationCases/*/restart
 simulationCases/*/c*-log
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Local post-processing helper binaries
+postProcess/getFacet-threePhase
+postProcess/getData-elastic-nonCoalescence
