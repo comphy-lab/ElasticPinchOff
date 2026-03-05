@@ -1,5 +1,5 @@
 /**
-# getFacet-threePhase.c
+# getFacetßß.c
 
 Extract `f` interface facets from a saved snapshot.
 
@@ -11,7 +11,7 @@ The output is written to `stderr` in Basilisk's facet text format.
 ## Build Example
 
 ```bash
-qcc -Wall -O2 postProcess/getFacet-threePhase.c -o getFacet -lm
+qcc -Wall -O2 postProcess/getFacet.c -o getFacet -lm
 ```
 */
 
@@ -26,7 +26,7 @@ char filename[80];
 ## main()
 
 Usage:
-`./getFacet-threePhase snapshot`
+`./getFacet snapshot`
 #### Arguments
 
 - `snapshot`: Basilisk dump/snapshot file to restore.
