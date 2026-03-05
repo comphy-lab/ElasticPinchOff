@@ -59,6 +59,8 @@ basilisk/
 
 # Generated simulation outputs
 simulationCases/[0-9]*/
+simulationCases/*-in/
+simulationCases/*-out/
 simulationCases/*/intermediate/
 simulationCases/*/dump
 simulationCases/*/restart
