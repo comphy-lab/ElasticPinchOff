@@ -3,31 +3,39 @@
 # Video-generic.py
 
 Create a mirrored-axis video from Basilisk `snapshot-*` states for
-two-phase film runs.
+axisymmetric two-phase runs.
 
 ## Pipeline
 
 1. Restore each snapshot.
-2. Sample `D2`, `vel`, and `trA` on a uniform grid.
-3. Overlay `f` interface facets.
-4. Write PNG frames and optionally assemble an MP4 with `ffmpeg`.
+2. Sample `vel` plus one left-overlay scalar (`trA` by default, `D2` via flag)
+   on a uniform grid using `getData-elastic.c`.
+3. Extract `f` interface facets via `output_facets(f, ...)`.
+4. Mirror about the axis of symmetry `y = 0` and render the full
+   axisymmetric cross-section with the interface overlaid.
+5. Write PNG frames and optionally assemble an MP4 with `ffmpeg`.
 
 ## Dependencies
 
-- `qcc`: builds helper binaries from `getFacet-threePhase.c` and
-  `getData-elastic-nonCoalescence.c`.
+- `qcc`: builds helper binaries from `getFacet.c` and
+  `getData-elastic.c`.
 - `numpy`: parsing, masking, and percentile-based color scaling.
 - `matplotlib`: frame rendering.
 - `ffmpeg`: optional MP4 assembly (skipped with `--skip-video`).
 
 ## Default Visualization
 
-- Base layer on full mirrored domain: `vel` (default colormap: `viridis`)
-- Overlay layer on top-left colorbar: `trA` (default colormap: `RdBu_r`, diverging)
-- Optional left layer via flag: `D2`
-- Domain window (configurable by CLI):
-  - Basilisk `x` in `[xmin, xmax]`, default `[-0.5, 0.5]`
-  - plotted `r` in `[ymin, ymax]`, default `[-0.5, 0.5]`
+- Base layer: `vel` across the full mirrored domain, with the right colorbar.
+- Left overlay: `trA` by default, or `D2` with `--left-d2`, shown only on the
+  left half (`r <= 0`).
+- Interface overlay: mirrored `f` facets from `output_facets`.
+- Coordinate mapping:
+  - horizontal axis: `r = y` (Basilisk `y`)
+  - vertical axis: `z = x` (Basilisk `x`)
+- Mirror facets across `r = 0` so the full axisymmetric cross-section is shown.
+- Default window: `z in [0, 4*pi]` and `r in [-2, 2]`.
+- Scalar sampling stays on the physical half-domain `y >= 0`; the negative-`r`
+  side is created only by mirroring in post-processing.
 - Default duration: `10 s` with `fps = N_frames / duration` when `--fps` is unset.
 
 #### Example
@@ -82,7 +90,7 @@ def parse_args() -> argparse.Namespace:
     - `argparse.Namespace`: Parsed command-line arguments.
     """
     parser = argparse.ArgumentParser(
-        description="Create a generic oscillating-film video with an f interface.",
+        description="Create an axisymmetric video from Basilisk snapshots.",
     )
     parser.add_argument(
         "--case-dir",
@@ -166,12 +174,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--vel-vmin",
         type=float,
-        help="vel color scale minimum (default: 0).",
+        help="vel color scale minimum (default: auto from first frame).",
     )
     parser.add_argument(
         "--vel-vmax",
         type=float,
-        help="vel color scale maximum (default: 0.1).",
+        help="vel color scale maximum (default: auto from first frame).",
     )
     parser.add_argument(
         "--vel-cmap",
@@ -181,12 +189,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--tra-vmin",
         type=float,
-        help="trA color scale minimum (default: -0.025).",
+        help="trA color scale minimum (default: auto from first frame).",
     )
     parser.add_argument(
         "--tra-vmax",
         type=float,
-        help="trA color scale maximum (default: 0.025).",
+        help="trA color scale maximum (default: auto from first frame).",
     )
     parser.add_argument(
         "--tra-cmap",
@@ -215,16 +223,28 @@ def parse_args() -> argparse.Namespace:
     )
 
     parser.add_argument(
-        "--xmin", type=float, default=-0.5, help="Window minimum in Basilisk x."
+        "--xmin",
+        type=float,
+        default=0.0,
+        help="Window minimum in Basilisk x (= plotted z). Default: 0.",
     )
     parser.add_argument(
-        "--xmax", type=float, default=0.5, help="Window maximum in Basilisk x."
+        "--xmax",
+        type=float,
+        default=4.0 * math.pi,
+        help="Window maximum in Basilisk x (= plotted z). Default: 4*pi.",
     )
     parser.add_argument(
-        "--ymin", type=float, default=-0.5, help="Window minimum in plotted r."
+        "--ymin",
+        type=float,
+        default=-2.0,
+        help="Window minimum in plotted r. Default: -2.",
     )
     parser.add_argument(
-        "--ymax", type=float, default=0.5, help="Window maximum in plotted r."
+        "--ymax",
+        type=float,
+        default=2.0,
+        help="Window maximum in plotted r. Default: 2.",
     )
     return parser.parse_args()
 
@@ -436,7 +456,7 @@ def auto_detect_case_dir(cwd: Path, snap_glob: str) -> Path:
 
 def sampling_y_bounds_for_window(ymin: float, ymax: float) -> tuple[float, float]:
     """
-    Map plotted radial window `[ymin, ymax]` to physical non-negative sampling bounds.
+    Map the mirrored plotting window in `r` to physical non-negative `y` bounds.
     """
     y_hi = max(abs(ymin), abs(ymax))
     if ymin <= 0.0 <= ymax:
@@ -473,17 +493,17 @@ def precompile_get_helpers(script_dir: Path, build_dir: Path) -> tuple[Path, Pat
     if shutil.which("qcc") is None:
         raise RuntimeError("qcc not found in PATH.")
 
-    facet_src = script_dir / "getFacet-threePhase.c"
-    data_src = script_dir / "getData-elastic-nonCoalescence.c"
+    facet_src = script_dir / "getFacet.c"
+    data_src = script_dir / "getData-elastic.c"
 
     if not facet_src.exists() or not data_src.exists():
         raise FileNotFoundError(
             "Required files not found in postProcess/: "
-            "getFacet-threePhase.c and/or getData-elastic-nonCoalescence.c"
+            "getFacet.c and/or getData-elastic.c"
         )
 
-    facet_bin = build_dir / "getFacet-threePhase"
-    data_bin = build_dir / "getData-elastic-nonCoalescence"
+    facet_bin = build_dir / "getFacet"
+    data_bin = build_dir / "getData-elastic"
 
     compile_get_helper(facet_src, facet_bin)
     compile_get_helper(data_src, data_bin)
@@ -522,6 +542,52 @@ def get_facets(snapshot: Path, facet_bin: Path, case_dir: Path) -> NDArray:
     """
     raw = run_capture([str(facet_bin), snapshot_argument(snapshot, case_dir)], cwd=case_dir)
     return parse_facet_segments(raw)
+
+
+def resolve_plot_window_from_facets(
+    interface_segments: NDArray,
+    xmin: float | None,
+    xmax: float | None,
+    ymin: float | None,
+    ymax: float | None,
+) -> tuple[float, float, float, float]:
+    """
+    Resolve plotting bounds, auto-detecting from facets when values are omitted.
+    """
+    if len(interface_segments) == 0:
+        if None in (xmin, xmax, ymin, ymax):
+            raise RuntimeError(
+                "No interface facets found in first snapshot and plot bounds were not fully specified."
+            )
+        assert xmin is not None and xmax is not None and ymin is not None and ymax is not None
+        return xmin, xmax, ymin, ymax
+
+    x_vals = interface_segments[..., 0].reshape(-1)
+    y_vals = interface_segments[..., 1].reshape(-1)
+    x_data_min = float(np.min(x_vals))
+    x_data_max = float(np.max(x_vals))
+    y_abs_max = float(np.max(np.abs(y_vals)))
+
+    x_span = max(x_data_max - x_data_min, 1e-12)
+    x_pad = 0.02 * x_span
+    auto_xmin = x_data_min - x_pad
+    auto_xmax = x_data_max + x_pad
+
+    y_abs_max = max(y_abs_max, 1e-12)
+    auto_ymax = 1.05 * y_abs_max
+    auto_ymin = -auto_ymax
+
+    x_min_plot = auto_xmin if xmin is None else xmin
+    x_max_plot = auto_xmax if xmax is None else xmax
+    y_min_plot = auto_ymin if ymin is None else ymin
+    y_max_plot = auto_ymax if ymax is None else ymax
+
+    if x_min_plot >= x_max_plot:
+        raise ValueError("--xmin must be < --xmax after resolving auto bounds.")
+    if y_min_plot >= y_max_plot:
+        raise ValueError("--ymin must be < --ymax after resolving auto bounds.")
+
+    return x_min_plot, x_max_plot, y_min_plot, y_max_plot
 
 
 def get_field_grid(
@@ -610,7 +676,7 @@ def map_segments_xy_to_rz(segments: NDArray) -> NDArray:
     """
     if len(segments) == 0:
         return segments
-    return segments[..., [1, 0]]
+    return segments[..., [1, 0]].copy()
 
 
 def mirror_segments_about_r0(segments_rz: NDArray) -> NDArray:
@@ -651,6 +717,20 @@ def mask_field_outside_r_window(
     return masked
 
 
+def mask_field_to_side(field_rz: MaskedArray, r_full: NDArray, side: str) -> MaskedArray:
+    """
+    Mask an `(r, z)` field so it is visible only on one side of the axis.
+    """
+    masked = np.ma.array(field_rz, copy=True)
+    if side == "left":
+        masked[:, r_full > 0.0] = np.ma.masked
+        return masked
+    if side == "right":
+        masked[:, r_full < 0.0] = np.ma.masked
+        return masked
+    raise ValueError(f"Unsupported side selector: {side}")
+
+
 def render_frame(
     frame_path: Path,
     t: float,
@@ -667,16 +747,14 @@ def render_frame(
     left_vmax: float | None,
 ) -> None:
     """
-    Render one PNG frame with vel background, left overlay, and `f` interface.
+    Render one PNG frame with full-width vel, left-half scalar overlay, and `f`.
     """
-    fig, ax = plt.subplots(figsize=(10.5, 5.5), dpi=180)
-
-    # Mapping: Basilisk x -> plotted z (vertical), Basilisk y -> plotted r (horizontal).
-    # We mirror about r=0 so the full domain is visible.
+    fig, ax = plt.subplots(figsize=(5.8, 10.5), dpi=180)
     r_full, vel_rz = mirror_field_xy_to_rz(vel_field, y)
     vel_rz = mask_field_outside_r_window(vel_rz, r_full, args.ymin, args.ymax)
     r_full_left, left_rz = mirror_field_xy_to_rz(left_field, y)
     left_rz = mask_field_outside_r_window(left_rz, r_full_left, args.ymin, args.ymax)
+    left_rz = mask_field_to_side(left_rz, r_full_left, "left")
     if len(r_full_left) != len(r_full) or not np.allclose(r_full_left, r_full):
         raise RuntimeError("vel/left mirrored radial grids are inconsistent.")
     extent_rz = grid_extent(r_full, x)
@@ -715,27 +793,11 @@ def render_frame(
             LineCollection(interface_rz, colors="black", linewidths=1.5, alpha=1.0)
         )
 
+    ax.axvline(0.0, color="0.5", linewidth=1.0, linestyle="--", zorder=4)
     ax.set_xlim(args.ymin, args.ymax)
     ax.set_ylim(args.xmin, args.xmax)
     ax.set_aspect("equal")
-
-    # Requested: no ticks/labels on the coordinate axes.
-    ax.set_xlabel("")
-    ax.set_ylabel("")
-    ax.set_xticks([])
-    ax.set_yticks([])
-    ax.tick_params(
-        axis="both",
-        which="both",
-        bottom=False,
-        top=False,
-        left=False,
-        right=False,
-        labelbottom=False,
-        labelleft=False,
-    )
-    for spine in ax.spines.values():
-        spine.set_linewidth(2.5)
+    ax.set_axis_off()
 
     ax.set_title(
         rf"$t={t:0.4f}$",
@@ -743,21 +805,17 @@ def render_frame(
         pad=16,
     )
 
-    fig.tight_layout()
-
-    # Slim vertical colorbars on both sides of the main axes.
+    fig.tight_layout(rect=(0.11, 0.03, 0.86, 0.97))
     l, b, w, h = ax.get_position().bounds
-    cbar_w = 0.018
-    cbar_gap = 0.012
+    cbar_w = 0.02
+    cbar_gap = 0.05
 
-    # Right colorbar: vel.
     cax_right = fig.add_axes([l + w + cbar_gap, b, cbar_w, h])
     cbar_right = fig.colorbar(vel_image, cax=cax_right, orientation="vertical")
     cbar_right.set_label(FIELD_LABEL["vel"], fontsize=20, labelpad=8)
     cbar_right.ax.tick_params(labelsize=16, width=1.4, length=5, direction="out")
     cbar_right.outline.set_linewidth(1.4)
 
-    # Left colorbar: trA (default) or D2 when `--left-d2` is set.
     cax_left = fig.add_axes([l - cbar_gap - cbar_w, b, cbar_w, h])
     cbar_left = fig.colorbar(left_image, cax=cax_left, orientation="vertical")
     cbar_left.set_label(FIELD_LABEL[left_field_key], fontsize=20, labelpad=8)
@@ -781,16 +839,8 @@ def default_limits_for_field(field_key: str) -> tuple[float | None, float | None
     """
     Return fixed default color limits for known fields.
 
-    - `vel`: [0, 0.1]
-    - `trA`: [-0.025, 0.025]
-    - `D2`: auto
+    Defaults are auto-resolved from the first rendered frame unless overridden.
     """
-    if field_key == "vel":
-        return 0.0, 0.1
-    if field_key == "trA":
-        return -0.025, 0.025
-    if field_key == "D2":
-        return None, None
     return None, None
 
 
@@ -842,8 +892,6 @@ def render_single_snapshot(
         raise RuntimeError("vel/left grids are inconsistent.")
     if not np.allclose(x_vel, x_left) or not np.allclose(y_vel, y_left):
         raise RuntimeError("vel/left coordinate arrays are inconsistent.")
-    x = x_vel
-    y = y_vel
 
     interface_segments = get_facets(snapshot, facet_bin, case_dir)
 
@@ -851,8 +899,8 @@ def render_single_snapshot(
     render_frame(
         frame_path=frame_path,
         t=t,
-        x=x,
-        y=y,
+        x=x_vel,
+        y=y_vel,
         vel_field=vel_field,
         left_field=left_field,
         interface_segments=interface_segments,
@@ -944,7 +992,6 @@ def main() -> int:
     args = parse_args()
     left_field_key = "D2" if args.left_d2 else "trA"
 
-    # Resolve automatic colormap defaults.
     if args.vel_cmap is None:
         args.vel_cmap = default_cmap_for_field("vel")
     if left_field_key == "D2":
@@ -1000,16 +1047,8 @@ def main() -> int:
     if args.duration <= 0:
         print("--duration must be > 0", file=sys.stderr)
         return 1
-    if args.xmin >= args.xmax:
-        print("--xmin must be < --xmax", file=sys.stderr)
-        return 1
-    if args.ymin >= args.ymax:
-        print("--ymin must be < --ymax", file=sys.stderr)
-        return 1
-    sample_ymin, sample_ymax = sampling_y_bounds_for_window(args.ymin, args.ymax)
-    if sample_ymax <= sample_ymin:
-        print("At least one of --ymin/--ymax must be non-zero.", file=sys.stderr)
-        return 1
+    sample_ymin: float | None = None
+    sample_ymax: float | None = None
     if args.cpus <= 0:
         print("--cpus must be > 0", file=sys.stderr)
         return 1
@@ -1052,15 +1091,51 @@ def main() -> int:
         print("Pre-processing: compiling get* helpers...", file=sys.stderr)
         facet_bin, data_bin = precompile_get_helpers(script_dir, build_dir)
 
-        first = snapshots[0]
-        xmin0 = args.xmin
-        xmax0 = args.xmax
-        ymin0, ymax0 = sampling_y_bounds_for_window(args.ymin, args.ymax)
+        first_facets = get_facets(snapshots[0], facet_bin, case_dir)
+        (
+            args.xmin,
+            args.xmax,
+            args.ymin,
+            args.ymax,
+        ) = resolve_plot_window_from_facets(
+            interface_segments=first_facets,
+            xmin=args.xmin,
+            xmax=args.xmax,
+            ymin=args.ymin,
+            ymax=args.ymax,
+        )
+        print(
+            (
+                f"Using plot window: z in [{args.xmin:.6g}, {args.xmax:.6g}], "
+                f"r in [{args.ymin:.6g}, {args.ymax:.6g}]"
+            ),
+            file=sys.stderr,
+        )
+        sample_ymin, sample_ymax = sampling_y_bounds_for_window(args.ymin, args.ymax)
+        if sample_ymax <= sample_ymin:
+            raise ValueError("At least one of --ymin/--ymax must be non-zero.")
+
         _, _, vel0 = get_field_grid(
-            first, data_bin, case_dir, "vel", xmin0, ymin0, xmax0, ymax0, args.ny
+            snapshots[0],
+            data_bin,
+            case_dir,
+            "vel",
+            args.xmin,
+            sample_ymin,
+            args.xmax,
+            sample_ymax,
+            args.ny,
         )
         _, _, left0 = get_field_grid(
-            first, data_bin, case_dir, left_field_key, xmin0, ymin0, xmax0, ymax0, args.ny
+            snapshots[0],
+            data_bin,
+            case_dir,
+            left_field_key,
+            args.xmin,
+            sample_ymin,
+            args.xmax,
+            sample_ymax,
+            args.ny,
         )
 
         fixed_vel_vmin, fixed_vel_vmax = default_limits_for_field("vel")
