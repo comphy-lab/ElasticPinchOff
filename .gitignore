@@ -51,7 +51,8 @@ Module.symvers
 Mkfile.old
 dkms.conf
 **/display.html
-
+**/*.mp4
+**/.DS_Store
 # Basilisk local/tooling folders
 basilisk/
 .comphy-basilisk/
