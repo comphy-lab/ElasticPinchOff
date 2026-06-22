@@ -102,7 +102,7 @@ int main (int argc, char const *argv[])
   dtmax = param_double("dtmax", 1e-5); // BEWARE of this for stability issues.
 
 
-  if (CaseNo < 1000 || MAXlevel <= 0 || Oh <= 0. || Oha < 0. ||
+  if (CaseNo < 1000 || MAXlevel <= 0 || Oh < 0. || Oha < 0. ||
       De < 0. || Ec < 0. || tmax <= 0. || dtmax <= 0. || dtmax > tmax) {
     fprintf(ferr, "ERROR: Invalid runtime parameters.\n");
     return 1;
