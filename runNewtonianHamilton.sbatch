@@ -7,7 +7,7 @@
 #SBATCH --mem=80G
 #SBATCH --time=3-00:00:00
 #SBATCH --gres=tmp:35G
-#SBATCH -p multi
+#SBATCH -p shared
 #SBATCH --output=slurm-%A_%a.out
 #SBATCH --error=slurm-%A_%a.err
 
@@ -16,9 +16,10 @@
 # Usage:
 #   sbatch runNewtonianHamilton.sbatch
 #
-# This is a Slurm job array: each array task runs exactly one case with one
-# OpenMP process. Slurm owns CPU placement for every case, avoiding accidental
-# contention between background subprocesses inside a single batch step.
+# This is a Slurm job array on Hamilton's shared partition: each array task runs
+# exactly one case with one OpenMP process. Slurm owns CPU placement for every
+# case, avoiding accidental contention between background subprocesses inside a
+# single batch step.
 #
 # Defaults:
 #   task 0: c1020-in, Oh=0,    Oha=0,    De=0, Ec=0
