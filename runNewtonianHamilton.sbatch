@@ -1,27 +1,33 @@
 #!/bin/bash
 #SBATCH --job-name=elasticNewtonian
+#SBATCH --array=0-2%3
 #SBATCH -N 1
-#SBATCH -n 3
+#SBATCH -n 1
 #SBATCH -c 40
-#SBATCH --mem=240G
+#SBATCH --mem=80G
 #SBATCH --time=3-00:00:00
-#SBATCH --gres=tmp:100G
+#SBATCH --gres=tmp:35G
 #SBATCH -p multi
-#SBATCH --output=slurm-%j.out
-#SBATCH --error=slurm-%j.err
+#SBATCH --output=slurm-%A_%a.out
+#SBATCH --error=slurm-%A_%a.err
 
 # Run the three Newtonian ElasticPinchOff cases on Hamilton.
 #
 # Usage:
 #   sbatch runNewtonianHamilton.sbatch
 #
+# This is a Slurm job array: each array task runs exactly one case with one
+# OpenMP process. Slurm owns CPU placement for every case, avoiding accidental
+# contention between background subprocesses inside a single batch step.
+#
 # Defaults:
-#   mode=in, cases c1020-in..c1022-in, 3 concurrent OpenMP runs,
-#   40 threads per case on one 128-core multi node.
+#   task 0: c1020-in, Oh=0,    Oha=0,    De=0, Ec=0
+#   task 1: c1021-in, Oh=1e-2, Oha=1e-4, De=0, Ec=0
+#   task 2: c1022-in, Oh=1e0,  Oha=1e-2, De=0, Ec=0
 #
 # Optional overrides:
 #   sbatch --export=ALL,CASE_MODE=out runNewtonianHamilton.sbatch
-#   sbatch --export=ALL,OMP_THREADS=32,MAX_PARALLEL=3 runNewtonianHamilton.sbatch
+#   sbatch --export=ALL,OMP_THREADS=32 runNewtonianHamilton.sbatch
 
 set -euo pipefail
 
@@ -29,7 +35,6 @@ SCRIPT_DIR="${SLURM_SUBMIT_DIR:-$(pwd)}"
 CASE_MODE="${CASE_MODE:-in}"
 CASE_START="${CASE_START:-1020}"
 OMP_THREADS="${OMP_THREADS:-${SLURM_CPUS_PER_TASK:-40}}"
-MAX_PARALLEL="${MAX_PARALLEL:-3}"
 TMAX="${TMAX:-60}"
 BASILISK_REF="${BASILISK_REF:-v2026-01-13}"
 BASILISK_INSTALL_URL="https://raw.githubusercontent.com/comphy-lab/basilisk-C/main/reset_install_basilisk-ref-locked.sh"
@@ -52,29 +57,6 @@ set_param_in_file() {
   rm -f "${file}.bak"
 }
 
-wait_for_case() {
-  local idx="$1"
-  local pid="${RUN_PIDS[$idx]}"
-  local label="${RUN_LABELS[$idx]}"
-
-  if wait "$pid"; then
-    ((SUCCESSFUL += 1))
-    echo "${label} completed."
-  else
-    ((FAILED += 1))
-    echo "ERROR: ${label} failed." >&2
-  fi
-
-  unset 'RUN_PIDS[idx]'
-  unset 'RUN_LABELS[idx]'
-  RUN_PIDS=("${RUN_PIDS[@]}")
-  RUN_LABELS=("${RUN_LABELS[@]}")
-}
-
-wait_for_one_active_case() {
-  wait_for_case 0
-}
-
 if [[ "$CASE_MODE" != "in" && "$CASE_MODE" != "out" ]]; then
   echo "ERROR: CASE_MODE must be 'in' or 'out', got '${CASE_MODE}'." >&2
   exit 1
@@ -85,6 +67,17 @@ if [[ ${#OH_VALUES[@]} -ne ${#OHA_VALUES[@]} ]]; then
   exit 1
 fi
 
+TASK_ID="${SLURM_ARRAY_TASK_ID:-${CASE_INDEX:-0}}"
+if [[ ! "$TASK_ID" =~ ^[0-9]+$ ]] || [[ "$TASK_ID" -ge ${#OH_VALUES[@]} ]]; then
+  echo "ERROR: task index must be 0..$((${#OH_VALUES[@]} - 1)), got '${TASK_ID}'." >&2
+  exit 1
+fi
+
+case_no=$((CASE_START + TASK_ID))
+case_label="c${case_no}-${CASE_MODE}"
+oh_value="${OH_VALUES[$TASK_ID]}"
+oha_value="${OHA_VALUES[$TASK_ID]}"
+
 if [[ ! "$SCRIPT_DIR" =~ ^/nobackup/ ]]; then
   echo "WARNING: Running from $SCRIPT_DIR"
   echo "         Hamilton jobs should run from /nobackup/\$USER/."
@@ -94,16 +87,20 @@ fi
 cd "$SCRIPT_DIR"
 
 echo "============================================="
-echo "ElasticPinchOff - Newtonian Hamilton cases"
+echo "ElasticPinchOff - Newtonian Hamilton case"
 echo "============================================="
 echo "Started: $(date)"
 echo "Node: $(hostname)"
 echo "Working directory: $(pwd)"
 echo "Job ID: ${SLURM_JOB_ID:-unknown}"
+echo "Array task: ${TASK_ID}"
+echo "Case: ${case_label}"
 echo "Mode: ${CASE_MODE}"
-echo "Cases: ${#OH_VALUES[@]}"
-echo "Threads per case: ${OMP_THREADS}"
-echo "Max concurrent cases: ${MAX_PARALLEL}"
+echo "Oh: ${oh_value}"
+echo "Oha: ${oha_value}"
+echo "De: ${DE_VALUE}"
+echo "Ec: ${EC_VALUE}"
+echo "Threads: ${OMP_THREADS}"
 echo "tmax: ${TMAX}"
 echo "Basilisk ref: ${BASILISK_REF}"
 echo "TMPDIR: ${TMPDIR:-not set}"
@@ -159,64 +156,36 @@ if [[ ! -f "$RUN_SCRIPT" ]]; then
   exit 1
 fi
 
-PARAM_DIR="${SCRIPT_DIR}/.hamilton-newtonian-${SLURM_JOB_ID:-manual}"
+PARAM_DIR="${SCRIPT_DIR}/.hamilton-newtonian-${SLURM_ARRAY_JOB_ID:-${SLURM_JOB_ID:-manual}}"
 LOG_DIR="${PARAM_DIR}/logs"
+param_file="${PARAM_DIR}/case_${case_no}.params"
 mkdir -p "$LOG_DIR"
 
-SUCCESSFUL=0
-FAILED=0
-RUN_PIDS=()
-RUN_LABELS=()
+cp "$BASE_CONFIG" "$param_file"
+set_param_in_file "CaseNo" "$case_no" "$param_file"
+set_param_in_file "Oh" "$oh_value" "$param_file"
+set_param_in_file "Oha" "$oha_value" "$param_file"
+set_param_in_file "De" "$DE_VALUE" "$param_file"
+set_param_in_file "Ec" "$EC_VALUE" "$param_file"
+set_param_in_file "tmax" "$TMAX" "$param_file"
 
-echo "Prepared cases:"
-for i in "${!OH_VALUES[@]}"; do
-  case_no=$((CASE_START + i))
-  param_file="${PARAM_DIR}/case_${case_no}.params"
-  cp "$BASE_CONFIG" "$param_file"
-  set_param_in_file "CaseNo" "$case_no" "$param_file"
-  set_param_in_file "Oh" "${OH_VALUES[$i]}" "$param_file"
-  set_param_in_file "Oha" "${OHA_VALUES[$i]}" "$param_file"
-  set_param_in_file "De" "$DE_VALUE" "$param_file"
-  set_param_in_file "Ec" "$EC_VALUE" "$param_file"
-  set_param_in_file "tmax" "$TMAX" "$param_file"
-
-  echo "  c${case_no}-${CASE_MODE}: Oh=${OH_VALUES[$i]}, Oha=${OHA_VALUES[$i]}, De=${DE_VALUE}, Ec=${EC_VALUE}, tmax=${TMAX}"
-done
+echo "Prepared ${case_label}:"
+echo "  params: ${param_file}"
+echo "  Oh=${oh_value}, Oha=${oha_value}, De=${DE_VALUE}, Ec=${EC_VALUE}, tmax=${TMAX}"
 echo ""
 
-for i in "${!OH_VALUES[@]}"; do
-  case_no=$((CASE_START + i))
-  param_file="${PARAM_DIR}/case_${case_no}.params"
-  label="c${case_no}-${CASE_MODE}"
-
-  echo "Launching ${label} at $(date)"
-  (
-    bash "$RUN_SCRIPT" "$param_file" --mode "$CASE_MODE" --threads "$OMP_THREADS"
-  ) >"${LOG_DIR}/${label}.out" 2>"${LOG_DIR}/${label}.err" &
-
-  RUN_PIDS+=("$!")
-  RUN_LABELS+=("$label")
-
-  if [[ ${#RUN_PIDS[@]} -ge $MAX_PARALLEL ]]; then
-    wait_for_one_active_case
-  fi
-done
-
-while [[ ${#RUN_PIDS[@]} -gt 0 ]]; do
-  wait_for_one_active_case
-done
+echo "Launching ${case_label} with Slurm-managed CPU binding..."
+srun --exclusive --ntasks=1 --cpus-per-task="$OMP_THREADS" \
+  bash "$RUN_SCRIPT" "$param_file" --mode "$CASE_MODE" --threads "$OMP_THREADS" \
+  >"${LOG_DIR}/${case_label}.out" 2>"${LOG_DIR}/${case_label}.err"
 
 echo ""
 echo "============================================="
-echo "Newtonian Hamilton cases complete"
+echo "Newtonian Hamilton case complete"
 echo "============================================="
 echo "Finished: $(date)"
-echo "Successful: ${SUCCESSFUL}"
-echo "Failed: ${FAILED}"
-echo "Case output root: ${SCRIPT_DIR}/simulationCases"
-echo "Per-case run logs: ${LOG_DIR}"
+echo "Case: ${case_label}"
+echo "Case output root: ${SCRIPT_DIR}/simulationCases/${case_label}"
+echo "Case run log: ${LOG_DIR}/${case_label}.out"
+echo "Case run err: ${LOG_DIR}/${case_label}.err"
 echo "============================================="
-
-if [[ "$FAILED" -gt 0 ]]; then
-  exit 1
-fi
