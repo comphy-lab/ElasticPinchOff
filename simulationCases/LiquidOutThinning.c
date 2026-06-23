@@ -257,7 +257,7 @@ event logWriting (i++)
       fprintf(fp, "CaseNo %d, Level %d, De %g, Ec %g, Oh %g, Oha %g\n",
               CaseNo, MAXlevel, De, Ec, Oh, Oha);
       fprintf(fp, "i dt t ke hm vm\n");
-      fprintf(fp, "%d %g %g %g %.6e %.6e\n", i, dt, t, ke, statsf(Y).min, normf(u.x).max);
+      fprintf(fp, "%d %.6e %.6e %.6e %.6e %.6e\n", i, dt, t, ke, statsf(Y).min, normf(u.x).max);
       fclose(fp);
     } else {
       fp = fopen(logFile, "a");
@@ -265,10 +265,10 @@ event logWriting (i++)
         fprintf(ferr, "ERROR: cannot open log file %s\n", logFile);
         exit(1);
       }
-      fprintf(fp, "%d %g %g %g %.6e %.6e\n", i, dt, t, ke, statsf(Y).min, normf(u.x).max);
+      fprintf(fp, "%d %.6e %.6e %.6e %.6e %.6e\n", i, dt, t, ke, statsf(Y).min, normf(u.x).max);
       fclose(fp);
     }
-    fprintf(ferr, "%d %g %g %g %.6e %.6e\n", i, dt, t, ke, statsf(Y).min, normf(u.x).max);
+    fprintf(ferr, "%d %.6e %.6e %.6e %.6e %.6e\n", i, dt, t, ke, statsf(Y).min, normf(u.x).max);
 
     assert(ke > -1e-10);
 
