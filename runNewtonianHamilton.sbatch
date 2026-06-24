@@ -117,8 +117,17 @@ if ! command -v curl >/dev/null 2>&1; then
   echo "ERROR: curl not found; required for Basilisk install." >&2
   exit 1
 fi
+if ! command -v flock >/dev/null 2>&1; then
+  echo "ERROR: flock not found; required to serialize Basilisk install across array tasks." >&2
+  exit 1
+fi
 
 echo "Installing or refreshing Basilisk (${BASILISK_REF})..."
+INSTALL_LOCK="${SCRIPT_DIR}/.hamilton-newtonian-basilisk-install.lock"
+echo "Waiting for Basilisk install lock: ${INSTALL_LOCK}"
+exec 9>"$INSTALL_LOCK"
+flock 9
+
 LOCK_FILE="${SCRIPT_DIR}/basilisk/.comphy-lock"
 LOCK_REF=""
 if [[ -f "$LOCK_FILE" ]]; then
@@ -143,6 +152,7 @@ if ! command -v qcc >/dev/null 2>&1; then
   exit 1
 fi
 echo "qcc: $(command -v qcc)"
+flock -u 9
 echo ""
 
 BASE_CONFIG="${SCRIPT_DIR}/default.params"

@@ -418,6 +418,21 @@ def read_case_number_from_params(params_path: Path) -> str | None:
     return None
 
 
+def case_dir_number(path: Path) -> int | None:
+    """
+    Extract a numeric case id from `1000` or `c1000-in` style directories.
+    """
+    name = path.name
+    if name.isdigit():
+        return int(name)
+    if not name.startswith("c"):
+        return None
+    raw = name[1:].split("-", 1)[0]
+    if raw.isdigit():
+        return int(raw)
+    return None
+
+
 def auto_detect_case_dir(cwd: Path, snap_glob: str) -> Path:
     """
     Auto-detect case directory when script is run from repository root.
@@ -425,7 +440,7 @@ def auto_detect_case_dir(cwd: Path, snap_glob: str) -> Path:
     Detection order:
     1. `cwd` itself if snapshots are present.
     2. `simulationCases/<CaseNo>` using `default.params`.
-    3. Highest numeric `simulationCases/<N>` containing snapshots.
+    3. Highest `simulationCases/<N>` or `simulationCases/c<N>-<mode>` containing snapshots.
     """
     if list_snapshots(cwd, snap_glob):
         return cwd
@@ -440,18 +455,21 @@ def auto_detect_case_dir(cwd: Path, snap_glob: str) -> Path:
         if preferred.is_dir() and list_snapshots(preferred, snap_glob):
             return preferred
 
-    numeric_cases = []
+    numbered_cases = []
     for candidate in sim_root.iterdir():
-        if not candidate.is_dir() or not candidate.name.isdigit():
+        if not candidate.is_dir():
+            continue
+        case_number = case_dir_number(candidate)
+        if case_number is None:
             continue
         if list_snapshots(candidate, snap_glob):
-            numeric_cases.append(candidate)
+            numbered_cases.append((case_number, candidate.name, candidate))
 
-    if not numeric_cases:
+    if not numbered_cases:
         return cwd
 
-    numeric_cases.sort(key=lambda p: int(p.name))
-    return numeric_cases[-1]
+    numbered_cases.sort()
+    return numbered_cases[-1][2]
 
 
 def sampling_y_bounds_for_window(ymin: float, ymax: float) -> tuple[float, float]:
