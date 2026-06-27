@@ -16,6 +16,7 @@ Runtime parameters are loaded from a `key=value` file through
 This case expects runtime keys such as:
 - `CaseNo`
 - `MAXlevel`
+- `MINlevel` (optional; defaults to `max(6, MAXlevel - 4)`)
 - `Oh`, `Oha`
 - `De`, `Ec`
 - `tmax`, `dtmax`
@@ -90,7 +91,7 @@ int main (int argc, char const *argv[])
 
   CaseNo = param_int("CaseNo", 1000);
   MAXlevel = param_int("MAXlevel", 12);
-  MINlevel = max(6, (MAXlevel-4)); // minimum grid res
+  MINlevel = param_int("MINlevel", max(6, (MAXlevel-4))); // minimum grid res
   maxlevelLocal = 7;
 
   tmax = param_double("tmax", 2e2);
@@ -102,7 +103,8 @@ int main (int argc, char const *argv[])
   dtmax = param_double("dtmax", 1e-5); // BEWARE of this for stability issues.
 
 
-  if (CaseNo < 1000 || MAXlevel <= 0 || Oh <= 0. || Oha < 0. ||
+  if (CaseNo < 1000 || MAXlevel <= 0 || MINlevel <= 0 || MINlevel > MAXlevel ||
+      Oh < 0. || Oha < 0. ||
       De < 0. || Ec < 0. || tmax <= 0. || dtmax <= 0. || dtmax > tmax) {
     fprintf(ferr, "ERROR: Invalid runtime parameters.\n");
     return 1;
@@ -129,8 +131,8 @@ int main (int argc, char const *argv[])
   CFL = 0.5;
 
   if (pid() == 0) {
-    fprintf(ferr, "CaseNo=%d MAXlevel=%d De=%g Ec=%g Oh=%g tmax=%g dtmax=%g\n",
-            CaseNo, MAXlevel, De, Ec, Oh, tmax, dtmax);
+    fprintf(ferr, "CaseNo=%d MAXlevel=%d MINlevel=%d De=%g Ec=%g Oh=%g tmax=%g dtmax=%g\n",
+            CaseNo, MAXlevel, MINlevel, De, Ec, Oh, tmax, dtmax);
     if (paramFile != NULL)
       fprintf(ferr, "Loaded parameters from %s\n", paramFile);
     fprintf(ferr, "Logging to %s\n", logFile);
@@ -257,7 +259,7 @@ event logWriting (i++)
       fprintf(fp, "CaseNo %d, Level %d, De %g, Ec %g, Oh %g, Oha %g\n",
               CaseNo, MAXlevel, De, Ec, Oh, Oha);
       fprintf(fp, "i dt t ke hm vm\n");
-      fprintf(fp, "%d %g %g %g %6.5e %6.5e\n", i, dt, t, ke, statsf(Y).min, normf(u.x).max);
+      fprintf(fp, "%d %.6e %.6e %.6e %.6e %.6e\n", i, dt, t, ke, statsf(Y).min, normf(u.x).max);
       fclose(fp);
     } else {
       fp = fopen(logFile, "a");
@@ -265,10 +267,10 @@ event logWriting (i++)
         fprintf(ferr, "ERROR: cannot open log file %s\n", logFile);
         exit(1);
       }
-      fprintf(fp, "%d %g %g %g %6.5e %6.5e\n", i, dt, t, ke, statsf(Y).min, normf(u.x).max);
+      fprintf(fp, "%d %.6e %.6e %.6e %.6e %.6e\n", i, dt, t, ke, statsf(Y).min, normf(u.x).max);
       fclose(fp);
     }
-    fprintf(ferr, "%d %g %g %g %6.5e %6.5e\n", i, dt, t, ke, statsf(Y).min, normf(u.x).max);
+    fprintf(ferr, "%d %.6e %.6e %.6e %.6e %.6e\n", i, dt, t, ke, statsf(Y).min, normf(u.x).max);
 
     assert(ke > -1e-10);
 

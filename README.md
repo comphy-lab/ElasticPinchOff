@@ -68,6 +68,7 @@ bash runParameterSweep.sh sweep.params --dry-run
 
 - `CaseNo`
 - `MAXlevel`
+- `MINlevel` (optional; defaults to `max(6, MAXlevel - 4)`)
 - `Oh`
 - `Oha` (optional; defaults to `1e-2*Oh` if omitted)
 - `De`
