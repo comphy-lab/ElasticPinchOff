@@ -26,7 +26,7 @@
 # Override: sbatch --export=ALL,BASILISK_REF=<ref> runSnellius_c1030-out.sbatch
 # =============================================================================
 
-set -uo pipefail
+set -euo pipefail
 
 # --- Case definition ---------------------------------------------------------
 CASE_NO=1030
@@ -75,9 +75,9 @@ if [[ ! -f "${SCRIPT_DIR}/.project_config" ]]; then
   if [[ ! -f "${SCRIPT_DIR}/.project_config" ]]; then
     export TMPDIR="${SCRIPT_DIR}/.installtmp"
     mkdir -p "$TMPDIR"
-    curl -sL "$BASILISK_INSTALL_URL" | bash -s -- --ref="$BASILISK_REF" --hard
+    curl -fsSL "$BASILISK_INSTALL_URL" | bash -s -- --ref="$BASILISK_REF" --hard
     if [[ ! -x "${SCRIPT_DIR}/basilisk/src/qcc" ]]; then
-      ( cd "${SCRIPT_DIR}/basilisk/src" && rm -f config && ln -s config.gcc config && make -k >/dev/null 2>&1; make )
+      ( cd "${SCRIPT_DIR}/basilisk/src" && rm -f config && ln -s config.gcc config && { make -k >/dev/null 2>&1 || true; } && make )
     fi
     if [[ ! -f "${SCRIPT_DIR}/.project_config" ]]; then
       cat > "${SCRIPT_DIR}/.project_config" <<CFG
